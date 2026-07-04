@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dino Survival v1.4</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#79c14e">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --grass:#79c14e; --grassDark:#5da33a; --bark:#4a2e1f; --cream:#fff3d6;
+    --lava:#ff7a3d; --gold:#ffd34d; --sky:#8fd7e8; --danger:#e0523d;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;font-family:'Fredoka',system-ui,sans-serif;background:var(--bark);
+    user-select:none;-webkit-user-select:none;touch-action:none}
+  #game{position:fixed;inset:0;background:var(--grass)}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:16px;text-align:center;background:rgba(30,20,12,.72);backdrop-filter:blur(2px);z-index:20}
+  .panel{background:var(--cream);border:6px solid var(--bark);border-radius:28px;padding:20px 22px;
+    max-width:520px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 10px 0 rgba(0,0,0,.25)}
+  h1{font-size:clamp(26px,7vw,40px);color:var(--bark);font-weight:700;letter-spacing:.5px}
+  h2{font-size:clamp(20px,5vw,28px);color:var(--bark);font-weight:700;margin-bottom:8px}
+  p{color:#6b4a33;font-size:15px;line-height:1.35}
+  .sub{color:#8a6a50;font-size:14px;margin:4px 0 14px}
+
+  .btn{font-family:inherit;font-weight:700;font-size:17px;border:4px solid var(--bark);border-radius:18px;
+    padding:12px 20px;background:var(--lava);color:#fff;cursor:pointer;box-shadow:0 5px 0 var(--bark);
+    transition:transform .06s;margin:6px 4px;min-width:120px}
+  .btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--bark)}
+  .btn.green{background:#57b544}.btn.gray{background:#9b8b7a}.btn.gold{background:var(--gold);color:var(--bark)}
+  .btn.small{font-size:14px;padding:8px 12px;min-width:0}
+  .btn:disabled{opacity:.45;pointer-events:none}
+
+  .dinorow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:10px 0}
+  .dcard{background:#fff;border:4px solid var(--bark);border-radius:20px;padding:12px 8px;width:140px;
+    cursor:pointer;transition:transform .1s}
+  .dcard:active{transform:scale(.96)}
+  .dcard .emo{font-size:44px}
+  .dcard b{display:block;color:var(--bark);font-size:16px}
+  .dcard span{font-size:12px;color:#8a6a50;display:block;line-height:1.25;margin-top:3px}
+  .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:8px;padding:2px 8px;margin-top:6px;color:#fff}
+  .tag.meat{background:var(--danger)}.tag.plant{background:#57b544}
+
+  #hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;
+    padding:10px;z-index:10;pointer-events:none}
+  .pill{background:var(--cream);border:4px solid var(--bark);border-radius:16px;padding:6px 12px;
+    font-weight:700;color:var(--bark);font-size:15px;box-shadow:0 4px 0 rgba(0,0,0,.2)}
+  #quest{max-width:52vw}
+  #hpwrap{position:fixed;bottom:12px;left:12px;right:12px;z-index:10;pointer-events:none;display:flex;justify-content:center}
+  #hpbar{width:min(360px,80vw);height:22px;background:#3a2417;border:4px solid var(--bark);border-radius:14px;overflow:hidden}
+  #hpfill{height:100%;background:linear-gradient(90deg,#57b544,#8ee06a);width:100%;transition:width .2s}
+  #bosshud{position:fixed;top:64px;left:0;right:0;display:none;justify-content:center;z-index:10;pointer-events:none}
+  #bossbar{width:min(420px,86vw);height:20px;background:#3a2417;border:4px solid var(--bark);border-radius:12px;overflow:hidden}
+  #bossfill{height:100%;background:linear-gradient(90deg,#e0523d,#ff8a5c);width:100%}
+  #lives{position:fixed;top:60px;right:12px;z-index:10;font-size:22px;display:none}
+
+  .shoprow{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;
+    border:3px solid var(--bark);border-radius:16px;padding:10px 12px;margin:8px 0;text-align:left}
+  .shoprow .info b{color:var(--bark);font-size:15px}
+  .shoprow .info span{font-size:12px;color:#8a6a50;display:block}
+
+  .shapes{display:flex;justify-content:center;gap:18px;margin:14px 0}
+  .holeRow{display:flex;justify-content:center;gap:18px;margin:8px 0 4px;background:#c9a06b;
+    border:4px solid var(--bark);border-radius:18px;padding:14px}
+  .shape,.hole{width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:44px}
+  .hole{background:#3a2417;border-radius:12px;color:#3a2417}
+  .hole.filled{color:inherit;background:#57b544}
+  .shape{cursor:pointer;touch-action:none}
+  .shape.used{visibility:hidden}
+
+  .reels{display:flex;justify-content:center;gap:10px;margin:14px 0}
+  .reel{width:74px;height:74px;background:#fff;border:4px solid var(--bark);border-radius:16px;
+    display:flex;align-items:center;justify-content:center;font-size:44px}
+
+  #toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:var(--gold);color:var(--bark);
+    border:4px solid var(--bark);border-radius:16px;padding:10px 18px;font-weight:700;z-index:40;display:none;
+    box-shadow:0 5px 0 rgba(0,0,0,.25);font-size:16px;text-align:center;max-width:88vw}
+  .hidden{display:none !important}
+  .bigemo{font-size:64px;margin:6px 0}
+</style>
+</head>
+<body>
+<div id="game"><canvas id="cv"></canvas></div>
+
+<div id="hud" class="hidden">
+  <div class="pill" id="hudLevel">Level 1</div>
+  <div class="pill" id="quest">Quest</div>
+  <div class="pill" id="hudPts">🪙 0</div>
+</div>
+<div id="lives" class="pill">❤️❤️❤️</div>
+<div id="bosshud"><div id="bossbar"><div id="bossfill"></div></div></div>
+<div id="hpwrap" class="hidden"><div id="hpbar"><div id="hpfill"></div></div></div>
+<div id="toast"></div>
+
+<!-- DINO SELECT -->
+<div id="scrSelect" class="overlay">
+  <div class="panel">
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v1.4</span></h1>
+    <p class="sub">Pick your dinosaur and start playing!</p>
+    <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
+      <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
+      <button class="btn small gray diffbtn" data-diff="intermediate">🦖 Intermediate</button>
+      <button class="btn small gray diffbtn" data-diff="advanced">🌋 Advanced</button>
+    </div>
+    <div class="dinorow">
+      <div class="dcard" data-dino="rex"><div class="emo">🦖</div><b>T-Rex</b>
+        <span>Hunts prey to survive. Upgrade: <b>Teeth</b></span><span class="tag meat">MEAT EATER</span></div>
+      <div class="dcard" data-dino="anky"><div class="emo"><svg width="64" height="48" viewBox="0 0 64 48">
+        <ellipse cx="30" cy="30" rx="20" ry="12" fill="#7a6bb8"/>
+        <ellipse cx="32" cy="34" rx="13" ry="6" fill="#c5bde8"/>
+        <path d="M14 26 Q30 8 46 26" fill="none" stroke="#5a4a98" stroke-width="7" stroke-linecap="round"/>
+        <circle cx="18" cy="22" r="3.5" fill="#ffd34d"/><circle cx="26" cy="17" r="3.5" fill="#ffd34d"/>
+        <circle cx="34" cy="17" r="3.5" fill="#ffd34d"/><circle cx="42" cy="22" r="3.5" fill="#ffd34d"/>
+        <ellipse cx="51" cy="27" rx="7" ry="5.5" fill="#7a6bb8"/>
+        <circle cx="53" cy="25.5" r="1.6" fill="#fff"/><circle cx="53.6" cy="25.5" r="0.9" fill="#222"/>
+        <path d="M12 30 Q4 30 3 26" fill="none" stroke="#7a6bb8" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="3" cy="25" r="4.5" fill="#5a4a98"/>
+        <rect x="20" y="38" width="6" height="8" rx="2.5" fill="#7a6bb8"/>
+        <rect x="36" y="38" width="6" height="8" rx="2.5" fill="#7a6bb8"/>
+      </svg></div><b>Ankylosaurus</b>
+        <span>Eats bushes. Tough shell. Upgrade: <b>Armor</b></span><span class="tag plant">PLANT EATER</span></div>
+      <div class="dcard" data-dino="brachio"><div class="emo">🦕</div><b>Brachiosaurus</b>
+        <span>Eats trees and bushes. Upgrade: <b>Speed</b></span><span class="tag plant">PLANT EATER</span></div>
+    </div>
+    <p id="saveNote" class="sub"></p>
+    <button id="btnContinue" class="btn green hidden">▶ Continue Game</button>
+  </div>
+</div>
+
+<!-- LEVEL INTRO -->
+<div id="scrIntro" class="overlay hidden">
+  <div class="panel">
+    <h2 id="introTitle">Level 1</h2>
+    <div class="bigemo" id="introEmo">🥚</div>
+    <p id="introText">Collect the eggs!</p>
+    <p class="sub">Hold your finger on the screen and your dino runs to it. Watch out for red raptors!</p>
+    <button id="btnStart" class="btn green">GO!</button>
+  </div>
+</div>
+
+<!-- LEVEL CLEAR -->
+<div id="scrClear" class="overlay hidden">
+  <div class="panel">
+    <h2>⭐ LEVEL CLEAR! ⭐</h2>
+    <div class="bigemo">🎉</div>
+    <p id="clearText"></p>
+    <button id="btnShop" class="btn gold">🛒 Upgrade Shop</button>
+    <button id="btnNext" class="btn green">Next Level ▶</button>
+  </div>
+</div>
+
+<!-- KNOCKED OUT -->
+<div id="scrKO" class="overlay hidden">
+  <div class="panel">
+    <h2>Ouch! You got knocked out.</h2>
+    <div class="bigemo">💫</div>
+    <p>No big deal. You keep all your points. Try the level again!</p>
+    <button id="btnRetry" class="btn green">Try Again</button>
+  </div>
+</div>
+
+<!-- SHOP -->
+<div id="scrShop" class="overlay hidden">
+  <div class="panel">
+    <h2>🛒 Dino Shop</h2>
+    <p class="sub">Points: <b id="shopPts">0</b> 🪙</p>
+    <div id="shopUpgrades"></div>
+    <h2 style="margin-top:12px;font-size:18px">🎩 Accessories</h2>
+    <div id="shopSkins"></div>
+    <button id="btnShopDone" class="btn green">Done ✔</button>
+  </div>
+</div>
+
+<!-- MINI GAME OFFER -->
+<div id="scrOffer" class="overlay hidden">
+  <div class="panel">
+    <h2>🎲 Mini Game!</h2>
+    <div class="bigemo" id="offerEmo">🐍</div>
+    <p id="offerText"></p>
+    <button id="btnPlayMini" class="btn gold">Play it!</button>
+    <button id="btnSkipMini" class="btn gray">Skip</button>
+  </div>
+</div>
+
+<!-- SHAPE SORTER -->
+<div id="scrShapes" class="overlay hidden">
+  <div class="panel">
+    <h2>🔷 Shape Sorter</h2>
+    <p class="sub">Tap a shape, then tap its matching hole! <b id="shapeTimer">15</b>s</p>
+    <div class="holeRow" id="holeRow"></div>
+    <div class="shapes" id="shapeRow"></div>
+    <p class="sub">+3 points each. All three = +6 bonus!</p>
+  </div>
+</div>
+
+<!-- LUCKY SPIN -->
+<div id="scrSpin" class="overlay hidden">
+  <div class="panel">
+    <h2>🎰 Lucky Spin</h2>
+    <p class="sub">1 point per spin. Match 3 for the JACKPOT (+25)!</p>
+    <div class="reels"><div class="reel" id="r0">🦖</div><div class="reel" id="r1">🥚</div><div class="reel" id="r2">🌴</div></div>
+    <p class="sub">Points: <b id="spinPts">0</b> 🪙</p>
+    <button id="btnSpin" class="btn gold">Spin (1 🪙)</button>
+    <button id="btnSpinDone" class="btn green">Done ✔</button>
+  </div>
+</div>
+
+<!-- CHOMP CHASE result uses toast; game runs on main canvas -->
+<div id="scrBossWin" class="overlay hidden">
+  <div class="panel">
+    <h2>👑 BOSS DEFEATED!</h2>
+    <div class="bigemo">🏆</div>
+    <p id="bossWinText"></p>
+    <button id="btnBossNext" class="btn green">Next Level ▶</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============ SAVE SYSTEM (window.storage with in-memory fallback) ============ */
+let memSave = null;
+async function saveGame(){
+  const data = JSON.stringify({v:1,level:S.level,points:S.points,dino:S.dino,
+    up:S.up,owned:S.owned,wearing:S.wearing,diff:S.diff});
+  memSave = data;
+  try{ if(window.storage) await window.storage.set('dino-survival-save', data);
+    else if(window.localStorage) localStorage.setItem('dino-survival-save', data); }catch(e){}
+}
+async function loadGame(){
+  let raw = memSave;
+  try{ if(window.storage){ const r = await window.storage.get('dino-survival-save'); if(r&&r.value) raw=r.value; }
+    else if(window.localStorage){ const r=localStorage.getItem('dino-survival-save'); if(r) raw=r; } }catch(e){}
+  if(!raw) return null;
+  try{ return JSON.parse(raw); }catch(e){ return null; }
+}
+
+/* ============ STATE ============ */
+const DINOS = {
+  rex:{name:'T-Rex',color:'#c9553d',belly:'#e8a68c',diet:'meat',statName:'Teeth'},
+  anky:{name:'Ankylosaurus',color:'#7a6bb8',belly:'#c5bde8',diet:'plant',statName:'Armor'},
+  brachio:{name:'Brachiosaurus',color:'#4d9e8a',belly:'#a8dccb',diet:'plant',statName:'Speed'}
+};
+const SKINS = [
+  {id:'glasses',name:'Cool Sunglasses',emoji:'🕶️',cost:15},
+  {id:'party',name:'Party Hat',emoji:'🥳',cost:20},
+  {id:'crown',name:'Royal Crown',emoji:'👑',cost:40}
+];
+const S = { screen:'select', level:1, points:0, dino:null, diff:'intermediate',
+  up:{power:0,armor:0,speed:0}, owned:[], wearing:null, lives:3 };
+const DIFF={beginner:{enemy:0.65,prey:0.6,label:'Beginner'},
+  intermediate:{enemy:1,prey:1,label:'Intermediate'},
+  advanced:{enemy:1.3,prey:1.2,label:'Advanced'}};
+function dmult(k){return (DIFF[S.diff]||DIFF.intermediate)[k];}
+
+/* ============ CANVAS ============ */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){ DPR=Math.min(window.devicePixelRatio||1,2);
+  W=window.innerWidth;H=window.innerHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+window.addEventListener('resize',resize);resize();
+
+/* ============ INPUT ============ */
+const input={active:false,x:0,y:0,keys:{}};
+cv.addEventListener('pointerdown',e=>{input.active=true;input.x=e.clientX;input.y=e.clientY;onTap(e.clientX,e.clientY);});
+cv.addEventListener('pointermove',e=>{if(input.active){input.x=e.clientX;input.y=e.clientY;}});
+window.addEventListener('pointerup',()=>input.active=false);
+window.addEventListener('keydown',e=>input.keys[e.key]=true);
+window.addEventListener('keyup',e=>input.keys[e.key]=false);
+
+/* ============ HELPERS ============ */
+const $=id=>document.getElementById(id);
+const rand=(a,b)=>a+Math.random()*(b-a);
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function toast(msg,ms=1500){const t=$('toast');t.textContent=msg;t.style.display='block';
+  clearTimeout(toast._t);toast._t=setTimeout(()=>t.style.display='none',ms);}
+function show(id){$(id).classList.remove('hidden');}
+function hide(id){$(id).classList.add('hidden');}
+function hideAllOverlays(){document.querySelectorAll('.overlay').forEach(o=>o.classList.add('hidden'));}
+function setPoints(n){S.points=n;$('hudPts').textContent='🪙 '+n;}
+function addPoints(n){setPoints(S.points+n);}
+
+/* ============ WORLD / LEVEL ============ */
+let world=null, mode='none'; // 'level' | 'boss' | 'chomp'
+function questFor(level){
+  if(level%5===0) return {type:'boss',text:'BOSS FIGHT! Bite the giant dino. 3 ❤️',emo:'👹'};
+  const kind=level%3;
+  if(kind===1) return {type:'eggs',need:4+level, text:`Collect ${4+level} eggs 🥚`,emo:'🥚'};
+  if(kind===2){
+    const d=DINOS[S.dino];
+    return d.diet==='meat'
+      ? {type:'food',need:3+Math.floor(level/2),text:`Catch ${3+Math.floor(level/2)} prey 🐀`,emo:'🍖'}
+      : {type:'food',need:3+Math.floor(level/2),text:`Eat ${3+Math.floor(level/2)} bushes 🌿`,emo:'🌿'};
+  }
+  return {type:'survive',need:30+level*2,text:`Survive ${30+level*2} seconds ⏱️`,emo:'⏱️'};
+}
+function playerSpeed(){ return 150 + S.up.speed*18 + (S.dino==='brachio'?20:0); }
+function playerPower(){ return 1 + S.up.power + (S.dino==='rex'?1:0); }
+function playerArmor(){ return S.up.armor + (S.dino==='anky'?1:0); }
+
+function buildLevel(){
+  const q=questFor(S.level);
+  world={q, t:0, progress:0, done:false,
+    player:{x:W/2,y:H/2,r:22,hp:100,face:1,anim:0},
+    eggs:[],bushes:[],trees:[],prey:[],raptors:[],pops:[]};
+  // sparse trees so you can still see
+  const nTrees=3+Math.min(3,Math.floor(S.level/3));
+  for(let i=0;i<nTrees;i++) world.trees.push({x:rand(60,W-60),y:rand(90,H-90),r:26,leaves:true});
+  for(let i=0;i<6;i++) spawnBush();
+  for(let i=0;i<(q.type==='eggs'?q.need:4);i++) spawnEgg();
+  const nPrey = DINOS[S.dino].diet==='meat' ? Math.max(4,(q.type==='food'?q.need+2:4)) : 2;
+  for(let i=0;i<nPrey;i++) spawnPrey();
+  const nRaptor=Math.min(1+Math.floor(S.level/2),4);
+  for(let i=0;i<nRaptor;i++) spawnRaptor();
+}
+function spawnBush(){world.bushes.push({x:rand(40,W-40),y:rand(90,H-70),r:16});}
+function spawnEgg(){world.eggs.push({x:rand(40,W-40),y:rand(90,H-70),r:12});}
+function spawnPrey(){world.prey.push({x:rand(40,W-40),y:rand(90,H-70),r:11,vx:rand(-1,1),vy:rand(-1,1)});}
+function spawnRaptor(){
+  const edge=Math.floor(rand(0,4));
+  const p=edge===0?{x:-30,y:rand(0,H)}:edge===1?{x:W+30,y:rand(0,H)}:edge===2?{x:rand(0,W),y:-30}:{x:rand(0,W),y:H+30};
+  world.raptors.push({x:p.x,y:p.y,r:18,hp:3,speed:(70+S.level*6)*dmult('enemy'),cool:0});
+}
+
+/* ============ BOSS ============ */
+function buildBoss(){
+  S.lives=3;updateLives();
+  world={t:0,done:false,player:{x:W/2,y:H*0.75,r:22,hp:100,face:1,anim:0},
+    boss:{x:W/2,y:H*0.3,r:52,hp:30+S.level*8,maxhp:30+S.level*8,vx:1,charging:false,chargeT:0,tx:0,ty:0,cool:2},
+    eggs:[],bushes:[],trees:[],prey:[],raptors:[],pops:[]};
+  for(let i=0;i<3;i++) spawnBush();
+  $('bosshud').style.display='flex'; $('lives').style.display='block';
+}
+function updateLives(){$('lives').textContent='❤️'.repeat(S.lives)+'🖤'.repeat(3-S.lives);}
+
+/* ============ TAP (boss bite) ============ */
+function onTap(x,y){
+  if(mode!=='boss'||!world||world.done) return;
+  const b=world.boss,p=world.player;
+  if(dist(p,b)<b.r+p.r+34){
+    const dmg=playerPower()+1;
+    b.hp-=dmg; world.pops.push({x:b.x,y:b.y-b.r,txt:'-'+dmg,t:0,color:'#fff'});
+    if(b.hp<=0){ bossDefeated(); }
+  }
+}
+function bossDefeated(){
+  world.done=true;$('bosshud').style.display='none';$('lives').style.display='none';
+  const reward=20+S.level*2; addPoints(reward);
+  $('bossWinText').textContent=`You earned ${reward} points! Your dino is legendary.`;
+  S.level++; saveGame(); show('scrBossWin');
+}
+
+/* ============ CHOMP CHASE MINI GAME ============ */
+let chomp=null;
+function buildChomp(){
+  chomp={t:25,player:{x:W/2,y:H/2,r:16,eaten:0},rival:{x:rand(60,W-60),y:rand(60,H-60),r:20,vx:1,vy:1},
+    dots:[],reward:0,over:false};
+  for(let i=0;i<14;i++) chomp.dots.push({x:rand(30,W-30),y:rand(90,H-60),r:6});
+}
+function endChomp(msg){
+  if(chomp.over)return; chomp.over=true;
+  addPoints(chomp.reward); toast(msg+`  +${chomp.reward} 🪙`,2200);
+  setTimeout(()=>{mode='none';openShopGate();},1400);
+}
+
+/* ============ GAME LOOP ============ */
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if(mode==='level'||mode==='boss') tickWorld(dt);
+  if(mode==='chomp') tickChomp(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function moveToward(o,tx,ty,speed,dt){
+  const dx=tx-o.x,dy=ty-o.y,d=Math.hypot(dx,dy);
+  if(d>4){o.x+=dx/d*speed*dt;o.y+=dy/d*speed*dt;if(Math.abs(dx)>2)o.face=dx>0?1:-1;}
+}
+function playerControl(p,dt,speed){
+  let mx=0,my=0;
+  if(input.keys['ArrowLeft']||input.keys['a'])mx-=1;
+  if(input.keys['ArrowRight']||input.keys['d'])mx+=1;
+  if(input.keys['ArrowUp']||input.keys['w'])my-=1;
+  if(input.keys['ArrowDown']||input.keys['s'])my+=1;
+  if(mx||my){const d=Math.hypot(mx,my);p.x+=mx/d*speed*dt;p.y+=my/d*speed*dt;if(mx)p.face=mx>0?1:-1;}
+  else if(input.active){moveToward(p,input.x,input.y,speed,dt);}
+  p.x=clamp(p.x,20,W-20);p.y=clamp(p.y,70,H-40);
+  p.anim+=dt*8;
+}
+
+function tickWorld(dt){
+  if(!world||world.done)return;
+  world.t+=dt;
+  const p=world.player;
+  playerControl(p,dt,playerSpeed());
+
+  // eggs
+  for(let i=world.eggs.length-1;i>=0;i--){const e=world.eggs[i];
+    if(dist(p,e)<p.r+e.r){world.eggs.splice(i,1);
+      const pts=2+Math.floor(rand(0,2)); addPoints(pts);
+      world.pops.push({x:e.x,y:e.y,txt:'+'+pts+'🪙',t:0,color:'#ffd34d'});
+      if(mode==='level'&&world.q.type==='eggs'){world.progress++;questHUD();}
+      else spawnEgg();
+    }}
+  // bushes (plant eaters)
+  const diet=DINOS[S.dino].diet;
+  for(let i=world.bushes.length-1;i>=0;i--){const b=world.bushes[i];
+    if(diet==='plant'&&dist(p,b)<p.r+b.r){world.bushes.splice(i,1);
+      p.hp=clamp(p.hp+15,0,100); addPoints(1);
+      world.pops.push({x:b.x,y:b.y,txt:'+1🪙 +HP',t:0,color:'#8ee06a'});
+      if(mode==='level'&&world.q.type==='food'){world.progress++;questHUD();}
+      setTimeout(()=>{if(world)spawnBush();},3000);
+    }}
+  // trees: brachio eats leaves
+  for(const t of world.trees){
+    if(S.dino==='brachio'&&t.leaves&&dist(p,t)<p.r+t.r){
+      t.leaves=false; p.hp=clamp(p.hp+20,0,100); addPoints(2);
+      world.pops.push({x:t.x,y:t.y-30,txt:'+2🪙 +HP',t:0,color:'#8ee06a'});
+      setTimeout(()=>{t.leaves=true;},8000);
+    }}
+  // prey wanders; carnivore eats
+  for(let i=world.prey.length-1;i>=0;i--){const pr=world.prey[i];
+    const pv=40*dmult('prey');pr.x+=pr.vx*pv*dt;pr.y+=pr.vy*pv*dt;
+    if(pr.x<20||pr.x>W-20)pr.vx*=-1; if(pr.y<80||pr.y>H-40)pr.vy*=-1;
+    if(dist(p,pr)<120&&diet==='meat'){ // flee
+      const dx=pr.x-p.x,dy=pr.y-p.y,d=Math.hypot(dx,dy)||1,fv=60*dmult('prey');pr.x+=dx/d*fv*dt;pr.y+=dy/d*fv*dt;}
+    if(diet==='meat'&&dist(p,pr)<p.r+pr.r){world.prey.splice(i,1);
+      p.hp=clamp(p.hp+15,0,100); addPoints(3);
+      world.pops.push({x:pr.x,y:pr.y,txt:'+3🪙 +HP',t:0,color:'#ffb28c'});
+      if(mode==='level'&&world.q.type==='food'){world.progress++;questHUD();}
+      setTimeout(()=>{if(world)spawnPrey();},2500);
+    }}
+  // raptors chase
+  for(const r of world.raptors){
+    moveToward(r,p.x,p.y,r.speed,dt); r.cool-=dt;
+    if(dist(p,r)<p.r+r.r&&r.cool<=0){
+      r.cool=1.1;
+      const dmg=Math.max(4,14-playerArmor()*3);
+      if(mode==='level'&&diet==='meat'){ // T-Rex bites back, but raptors always hurt too
+        p.hp-=dmg; world.pops.push({x:p.x,y:p.y-24,txt:'-'+dmg,t:0,color:'#ff6b5b'});
+        r.hp-=playerPower();
+        if(r.hp<=0){
+          const idx=world.raptors.indexOf(r);world.raptors.splice(idx,1);
+          addPoints(5);world.pops.push({x:r.x,y:r.y,txt:'CHOMP! +5🪙',t:0,color:'#fff'});
+          setTimeout(()=>{if(world&&mode==='level')spawnRaptor();},4000);
+        }else{
+          world.pops.push({x:r.x,y:r.y-20,txt:'BITE!',t:0,color:'#ffd34d'});
+        }
+        const dx=p.x-r.x,dy=p.y-r.y,d=Math.hypot(dx,dy)||1;p.x+=dx/d*40;p.y+=dy/d*40;
+      }else{
+        p.hp-=dmg; world.pops.push({x:p.x,y:p.y-24,txt:'-'+dmg,t:0,color:'#ff6b5b'});
+        const dx=p.x-r.x,dy=p.y-r.y,d=Math.hypot(dx,dy)||1;p.x+=dx/d*40;p.y+=dy/d*40;
+      }
+    }
+  }
+  // boss behavior
+  if(mode==='boss'){
+    const b=world.boss;
+    if(b.charging){
+      moveToward(b,b.tx,b.ty,340*dmult('enemy'),dt); b.chargeT-=dt;
+      if(b.chargeT<=0||dist(b,{x:b.tx,y:b.ty})<10){b.charging=false;b.cool=rand(1.5,2.6);}
+      if(dist(p,b)<p.r+b.r){ b.charging=false;b.cool=2; loseLife(); }
+    }else{
+      b.x+=Math.sin(world.t)*30*dt; b.cool-=dt;
+      if(b.cool<=0){b.charging=true;b.chargeT=1.2;b.tx=p.x;b.ty=p.y;
+        world.pops.push({x:b.x,y:b.y-b.r-10,txt:'ROAR!',t:0,color:'#ffd34d'});}
+    }
+    $('bossfill').style.width=(clamp(b.hp/b.maxhp,0,1)*100)+'%';
+  }
+  // HP / KO
+  $('hpfill').style.width=clamp(p.hp,0,100)+'%';
+  if(p.hp<=0){
+    if(mode==='boss'){p.hp=100;loseLife();}
+    else{world.done=true;show('scrKO');}
+  }
+  // survive quest timer
+  if(mode==='level'&&world.q.type==='survive'){
+    world.progress=Math.floor(world.t);questHUD();
+  }
+  // quest complete
+  if(mode==='level'&&!world.done&&world.q.type!=='boss'&&world.progress>=world.q.need){
+    world.done=true; levelClear();
+  }
+  // popups
+  for(let i=world.pops.length-1;i>=0;i--){const o=world.pops[i];o.t+=dt;o.y-=30*dt;if(o.t>1)world.pops.splice(i,1);}
+}
+function loseLife(){
+  S.lives--;updateLives();toast('💥 Hit by the boss!');
+  const p=world.player;p.x=W/2;p.y=H*0.8;p.hp=100;
+  if(S.lives<=0){world.done=true;$('bosshud').style.display='none';$('lives').style.display='none';show('scrKO');}
+}
+function tickChomp(dt){
+  if(!chomp||chomp.over)return;
+  chomp.t-=dt;
+  const p=chomp.player,r=chomp.rival;
+  playerControl(p,dt,170);
+  const rv=90*dmult('enemy');r.x+=r.vx*rv*dt;r.y+=r.vy*rv*dt;
+  if(r.x<30||r.x>W-30)r.vx*=-1; if(r.y<80||r.y>H-40)r.vy*=-1;
+  for(let i=chomp.dots.length-1;i>=0;i--){const d=chomp.dots[i];
+    if(dist(p,d)<p.r+d.r){chomp.dots.splice(i,1);p.r+=1.2;p.eaten++;chomp.reward+=1;
+      chomp.dots.push({x:rand(30,W-30),y:rand(90,H-60),r:6});}
+    else if(dist(r,d)<r.r+d.r){chomp.dots.splice(i,1);r.r+=1;chomp.dots.push({x:rand(30,W-30),y:rand(90,H-60),r:6});}
+  }
+  if(dist(p,r)<p.r+r.r){
+    if(p.r>r.r){chomp.reward+=10;endChomp('🏆 You ate the rival dino!');}
+    else{endChomp('😵 The bigger dino got you!');}
+  }
+  if(chomp.t<=0)endChomp('⏱️ Time up!');
+}
+
+/* ============ QUEST / FLOW ============ */
+function questHUD(){
+  if(mode==='boss'){$('quest').textContent='👹 BOSS FIGHT — get close and TAP to bite!';return;}
+  const q=world.q;
+  $('quest').textContent=q.text.replace(/^(Collect|Catch|Eat|Survive)/,m=>m)+`  (${Math.min(world.progress,q.need)}/${q.need})`;
+}
+function startLevel(){
+  hideAllOverlays();show('hud');show('hpwrap');
+  $('hudLevel').textContent='Level '+S.level;
+  const q=questFor(S.level);
+  if(q.type==='boss'){mode='boss';buildBoss();}
+  else{mode='level';buildLevel();}
+  questHUD();
+}
+function levelClear(){
+  const bonus=5+S.level; addPoints(bonus);
+  $('clearText').textContent=`Level ${S.level} done! Bonus +${bonus} points. Total: ${S.points} 🪙`;
+  S.level++; saveGame(); show('scrClear');
+}
+function maybeOfferMini(){ // ~60% of level clears
+  if(Math.random()<0.6){openMiniOffer();return true;} return false;
+}
+let pendingMini=null;
+function openMiniOffer(){
+  const games=[
+    {id:'chomp',emo:'🐍',text:'Chomp Chase! Eat dots, grow big, and try to eat the rival dino. Earn bonus points!'},
+    {id:'shapes',emo:'🔷',text:'Shape Sorter! Fit the shapes in the holes before time runs out. +3 points each!'},
+    {id:'spin',emo:'🎰',text:'Lucky Spin! Spend 1 point a spin. Match 3 for a +25 jackpot!'}
+  ];
+  pendingMini=games[Math.floor(rand(0,games.length))];
+  $('offerEmo').textContent=pendingMini.emo;
+  $('offerText').textContent=pendingMini.text+'  Play for bonus points, or skip and keep going.';
+  hideAllOverlays();show('scrOffer');
+}
+function openShopGate(){ // after mini game or skip → intro next level
+  hideAllOverlays();showIntro();
+}
+function showIntro(){
+  const q=questFor(S.level);
+  $('introTitle').textContent=(q.type==='boss'?'👹 BOSS LEVEL '+S.level:'Level '+S.level)+' · '+DIFF[S.diff].label;
+  $('introEmo').textContent=q.emo;
+  $('introText').textContent=q.type==='boss'
+    ? 'A giant boss dino guards this land! Get close and TAP it to bite. Dodge its charge. You have 3 hearts.'
+    : q.text;
+  hideAllOverlays();show('scrIntro');
+}
+
+/* ============ SHOP ============ */
+const UPS=[
+  {id:'power',name:'🦷 Teeth Power',desc:'Bite harder. Strong T-Rex can even chomp raptors!'},
+  {id:'armor',name:'🛡️ Armor Plates',desc:'Raptor bites hurt less.'},
+  {id:'speed',name:'💨 Speed Legs',desc:'Run faster across the land.'}
+];
+function upCost(lv){return 10+lv*5;}
+function renderShop(){
+  $('shopPts').textContent=S.points;
+  const u=$('shopUpgrades');u.innerHTML='';
+  for(const up of UPS){
+    const lv=S.up[up.id],cost=upCost(lv);
+    const row=document.createElement('div');row.className='shoprow';
+    row.innerHTML=`<div class="info"><b>${up.name} — Lv ${lv}</b><span>${up.desc}</span></div>`;
+    const btn=document.createElement('button');btn.className='btn small gold';
+    btn.textContent=cost+' 🪙';btn.disabled=S.points<cost;
+    btn.onclick=()=>{if(S.points>=cost){addPoints(-cost);S.up[up.id]++;saveGame();renderShop();toast(up.name+' upgraded!');}};
+    row.appendChild(btn);u.appendChild(row);
+  }
+  const sk=$('shopSkins');sk.innerHTML='';
+  for(const s of SKINS){
+    const owned=S.owned.includes(s.id),wearing=S.wearing===s.id;
+    const row=document.createElement('div');row.className='shoprow';
+    row.innerHTML=`<div class="info"><b>${s.emoji} ${s.name}</b><span>${owned?(wearing?'Wearing it!':'Owned'):'Looks awesome on any dino'}</span></div>`;
+    const btn=document.createElement('button');btn.className='btn small '+(owned?'green':'gold');
+    if(!owned){btn.textContent=s.cost+' 🪙';btn.disabled=S.points<s.cost;
+      btn.onclick=()=>{addPoints(-s.cost);S.owned.push(s.id);S.wearing=s.id;saveGame();renderShop();toast('You got the '+s.name+'!');};}
+    else{btn.textContent=wearing?'Take off':'Wear';
+      btn.onclick=()=>{S.wearing=wearing?null:s.id;saveGame();renderShop();};}
+    row.appendChild(btn);sk.appendChild(row);
+  }
+}
+
+/* ============ SHAPE SORTER ============ */
+let shapeState=null;
+function startShapes(){
+  hideAllOverlays();show('scrShapes');
+  const defs=[{k:'circle',e:'🔴'},{k:'square',e:'🟦'},{k:'tri',e:'🔺'}].sort(()=>Math.random()-.5);
+  shapeState={time:(S.diff==='beginner'?20:S.diff==='advanced'?12:15),placed:0,sel:null,done:false};
+  const hr=$('holeRow'),sr=$('shapeRow');hr.innerHTML='';sr.innerHTML='';
+  const holes=[...defs].sort(()=>Math.random()-.5);
+  for(const h of holes){const d=document.createElement('div');d.className='hole';d.dataset.k=h.k;d.textContent=h.e;hr.appendChild(d);
+    d.onclick=()=>{if(shapeState.done||!shapeState.sel)return;
+      if(shapeState.sel.dataset.k===h.k&&!d.classList.contains('filled')){
+        d.classList.add('filled');shapeState.sel.classList.add('used');shapeState.sel=null;
+        shapeState.placed++;addPoints(3);toast('+3 🪙');
+        if(shapeState.placed===3){addPoints(6);finishShapes('🌟 All shapes! +6 bonus!');}
+      }else{toast('Not that hole! Try again.');}};}
+  for(const s of defs){const d=document.createElement('div');d.className='shape';d.dataset.k=s.k;d.textContent=s.e;sr.appendChild(d);
+    d.onclick=()=>{if(shapeState.done||d.classList.contains('used'))return;
+      document.querySelectorAll('.shape').forEach(x=>x.style.transform='');
+      shapeState.sel=d;d.style.transform='scale(1.25)';};}
+  shapeState.timer=setInterval(()=>{shapeState.time--;$('shapeTimer').textContent=shapeState.time;
+    if(shapeState.time<=0)finishShapes('⏱️ Time up! You placed '+shapeState.placed+'.');},1000);
+  $('shapeTimer').textContent=shapeState.time;
+}
+function finishShapes(msg){
+  if(shapeState.done)return;shapeState.done=true;clearInterval(shapeState.timer);
+  toast(msg,2000);setTimeout(openShopGate,1300);
+}
+
+/* ============ LUCKY SPIN ============ */
+const SPIN_EMO=['🦖','🥚','🌴','🍖','💎'];
+let spinsLeft=10;
+function spinBtnUI(){
+  $('btnSpin').textContent=`Spin (1 🪙) — ${spinsLeft} left`;
+  $('btnSpin').disabled=S.points<1||spinsLeft<=0;
+}
+function startSpin(){hideAllOverlays();show('scrSpin');$('spinPts').textContent=S.points;
+  spinsLeft=10;spinBtnUI();}
+$('btnSpin').onclick=()=>{
+  if(S.points<1||spinsLeft<=0)return; addPoints(-1);spinsLeft--;$('spinPts').textContent=S.points;
+  $('btnSpin').disabled=true;
+  const ids=['r0','r1','r2'];let ticks=0;
+  const iv=setInterval(()=>{ticks++;
+    for(const id of ids)$(id).textContent=SPIN_EMO[Math.floor(rand(0,SPIN_EMO.length))];
+    if(ticks>=12){clearInterval(iv);
+      // jackpot roughly 1-in-12
+      let a,b,c;
+      if(Math.random()<1/12){a=b=c=SPIN_EMO[Math.floor(rand(0,SPIN_EMO.length))];}
+      else{a=SPIN_EMO[Math.floor(rand(0,5))];b=SPIN_EMO[Math.floor(rand(0,5))];c=SPIN_EMO[Math.floor(rand(0,5))];
+        if(a===b&&b===c)c=SPIN_EMO[(SPIN_EMO.indexOf(c)+1)%5];}
+      $('r0').textContent=a;$('r1').textContent=b;$('r2').textContent=c;
+      if(a===b&&b===c){addPoints(25);toast('🎉 JACKPOT! +25 🪙',2500);}
+      else if(a===b||b===c||a===c){addPoints(3);toast('Pair! +3 🪙');}
+      $('spinPts').textContent=S.points;spinBtnUI();saveGame();
+      if(spinsLeft<=0)toast('Out of spins! Hit Done to keep playing.',2200);
+    }},70);
+};
+$('btnSpinDone').onclick=openShopGate;
+
+/* ============ DRAWING ============ */
+function shade(hex,amt){
+  const n=parseInt(hex.slice(1),16);
+  const R=clamp((n>>16)+amt,0,255),G=clamp(((n>>8)&255)+amt,0,255),B=clamp((n&255)+amt,0,255);
+  return '#'+((R<<16)|(G<<8)|B).toString(16).padStart(6,'0');
+}
+function ol(w){ctx.lineWidth=w||2;ctx.strokeStyle='rgba(45,25,12,.4)';ctx.stroke();}
+function drawShadow(r){ctx.fillStyle='rgba(0,0,0,.14)';
+  ctx.beginPath();ctx.ellipse(0,r*0.98,r*1.05,r*0.26,0,0,Math.PI*2);ctx.fill();}
+function dinoEye(hx,hy,s,brow){
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(hx,hy,s,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#1c1c1c';ctx.beginPath();ctx.arc(hx+s*0.3,hy,s*0.55,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(hx+s*0.12,hy-s*0.22,s*0.18,0,Math.PI*2);ctx.fill();
+  if(brow){ctx.strokeStyle='rgba(45,25,12,.65)';ctx.lineWidth=Math.max(1.2,s*0.38);ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(hx-s*1.2,hy-s*1.0);ctx.lineTo(hx+s*0.9,hy-s*1.5);ctx.stroke();}
+}
+function drawAccessory(acc,hx,hy,hr){
+  if(!acc)return;
+  if(acc==='glasses'){ctx.fillStyle='#15151a';
+    ctx.fillRect(hx-hr*0.2,hy-hr*0.35,hr*1.0,hr*0.44);
+    ctx.fillRect(hx-hr*0.6,hy-hr*0.24,hr*0.45,hr*0.14);
+    ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(hx-hr*0.08,hy-hr*0.28,hr*0.3,hr*0.13);}
+  if(acc==='party'){ctx.fillStyle='#ff5ba0';
+    ctx.beginPath();ctx.moveTo(hx,hy-hr*1.9);ctx.lineTo(hx-hr*0.55,hy-hr*0.55);ctx.lineTo(hx+hr*0.55,hy-hr*0.55);ctx.closePath();ctx.fill();ol(1.5);
+    ctx.fillStyle='#ffd34d';ctx.beginPath();ctx.arc(hx,hy-hr*1.9,hr*0.18,0,Math.PI*2);ctx.fill();}
+  if(acc==='crown'){ctx.fillStyle='#ffd34d';
+    ctx.beginPath();
+    ctx.moveTo(hx-hr*0.55,hy-hr*0.5);ctx.lineTo(hx-hr*0.55,hy-hr*1.1);
+    ctx.lineTo(hx-hr*0.25,hy-hr*0.75);ctx.lineTo(hx,hy-hr*1.25);ctx.lineTo(hx+hr*0.25,hy-hr*0.75);
+    ctx.lineTo(hx+hr*0.55,hy-hr*1.1);ctx.lineTo(hx+hr*0.55,hy-hr*0.5);ctx.closePath();ctx.fill();ol(1.5);}
+}
+function rexLeg(r,x,bob,swing){
+  ctx.beginPath();ctx.ellipse(x,r*0.32+bob,r*0.3,r*0.4,swing*0.15,0,Math.PI*2);ctx.fill();
+  ctx.save();ctx.translate(x,r*0.52+bob);ctx.rotate(swing*0.18);
+  ctx.fillRect(-r*0.09,0,r*0.18,r*0.4);
+  ctx.beginPath();ctx.ellipse(r*0.08,r*0.42,r*0.23,r*0.1,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#f5ead0';
+  ctx.beginPath();ctx.moveTo(r*0.26,r*0.36);ctx.lineTo(r*0.38,r*0.43);ctx.lineTo(r*0.26,r*0.5);ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+function drawRexBody(r,anim,color,belly){
+  const bob=Math.sin(anim)*1.5,leg=Math.sin(anim*2);
+  const dark=shade(color,-28),lite=shade(color,22);
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.moveTo(-r*0.15,-r*0.5+bob);
+  ctx.quadraticCurveTo(-r*1.5,-r*0.55+bob,-r*2.05,-r*0.1+bob);
+  ctx.quadraticCurveTo(-r*1.35,r*0.3+bob,-r*0.05,r*0.5+bob);
+  ctx.closePath();ctx.fill();ol();
+  ctx.fillStyle=dark; rexLeg(r,-r*0.05,bob,-leg);
+  ctx.fillStyle=color;
+  ctx.beginPath();ctx.ellipse(0,bob,r*0.92,r*0.68,-0.28,0,Math.PI*2);ctx.fill();ol();
+  ctx.fillStyle=lite;
+  ctx.beginPath();ctx.ellipse(-r*0.1,-r*0.28+bob,r*0.5,r*0.2,-0.28,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=belly;
+  ctx.beginPath();ctx.ellipse(r*0.18,r*0.26+bob,r*0.5,r*0.3,-0.15,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=color; rexLeg(r,r*0.15,bob,leg);
+  ctx.strokeStyle=color;ctx.lineWidth=r*0.15;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(r*0.45,r*0.02+bob);ctx.lineTo(r*0.62,r*0.24+bob);ctx.stroke();
+  const hx=r*0.95,hy=-r*0.75+bob,hr=r*0.5;
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.moveTo(r*0.28,-r*0.55+bob);ctx.quadraticCurveTo(r*0.6,-r*0.95+bob,hx,hy);
+  ctx.lineTo(hx+r*0.08,hy+hr*0.9);ctx.quadraticCurveTo(r*0.55,-r*0.05+bob,r*0.32,r*0.05+bob);
+  ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.ellipse(hx,hy,hr*1.02,hr*0.72,0.05,0,Math.PI*2);ctx.fill();ol();
+  ctx.beginPath();
+  ctx.moveTo(hx+hr*0.35,hy-hr*0.45);
+  ctx.quadraticCurveTo(hx+hr*1.5,hy-hr*0.38,hx+hr*1.52,hy+hr*0.02);
+  ctx.lineTo(hx+hr*1.45,hy+hr*0.28);
+  ctx.lineTo(hx+hr*0.28,hy+hr*0.45);
+  ctx.closePath();ctx.fill();ol();
+  ctx.strokeStyle='rgba(45,25,12,.55)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(hx+hr*0.32,hy+hr*0.3);ctx.lineTo(hx+hr*1.4,hy+hr*0.16);ctx.stroke();
+  ctx.fillStyle='#fff';
+  for(let i=0;i<4;i++){const tx=hx+hr*(0.45+i*0.25),ty=hy+hr*(0.27-i*0.03);
+    ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(tx+hr*0.09,ty+hr*0.17);ctx.lineTo(tx+hr*0.18,ty-hr*0.01);ctx.closePath();ctx.fill();}
+  ctx.fillStyle='rgba(45,25,12,.5)';
+  ctx.beginPath();ctx.arc(hx+hr*1.3,hy-hr*0.14,hr*0.06,0,Math.PI*2);ctx.fill();
+  dinoEye(hx+hr*0.12,hy-hr*0.16,hr*0.16,true);
+  return {hx:hx,hy:hy,hr:hr};
+}
+function drawAnkyBody(r,anim,color,belly){
+  const bob=Math.sin(anim)*1.2,leg=Math.sin(anim*2)*2;
+  const dark=shade(color,-30);
+  ctx.strokeStyle=color;ctx.lineWidth=r*0.22;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-r*0.8,r*0.05+bob);ctx.quadraticCurveTo(-r*1.5,-r*0.05+bob,-r*1.8,-r*0.28+bob);ctx.stroke();
+  ctx.fillStyle=dark;
+  ctx.beginPath();ctx.arc(-r*1.92,-r*0.34+bob,r*0.3,0,Math.PI*2);ctx.fill();ol();
+  ctx.fillStyle=shade(color,-18);
+  ctx.fillRect(-r*0.75,r*0.4+bob-leg*0.3,r*0.26,r*0.52);
+  ctx.fillRect(r*0.45,r*0.4+bob+leg*0.3,r*0.26,r*0.52);
+  ctx.fillStyle=color;
+  ctx.beginPath();ctx.ellipse(-r*0.05,r*0.05+bob,r*1.05,r*0.6,0,0,Math.PI*2);ctx.fill();ol();
+  ctx.fillStyle=belly;
+  ctx.beginPath();ctx.ellipse(0,r*0.36+bob,r*0.75,r*0.28,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=color;
+  ctx.fillRect(-r*0.52,r*0.44+bob+leg*0.3,r*0.28,r*0.52);
+  ctx.fillRect(r*0.22,r*0.44+bob-leg*0.3,r*0.28,r*0.52);
+  ctx.fillStyle=shade(color,-14);
+  ctx.beginPath();ctx.ellipse(-r*0.05,-r*0.1+bob,r*0.95,r*0.44,0,Math.PI,0);ctx.fill();
+  ctx.fillStyle='#e8c86a';
+  for(let i=-2;i<=2;i++){
+    ctx.beginPath();ctx.arc(i*r*0.36-r*0.05,-r*0.42+bob+Math.abs(i)*r*0.08,r*0.11,0,Math.PI*2);ctx.fill();ol(1.2);}
+  for(let i=-2;i<=1;i++){
+    ctx.beginPath();ctx.arc(i*r*0.36+r*0.13,-r*0.16+bob,r*0.09,0,Math.PI*2);ctx.fill();}
+  const hx=r*1.08,hy=-r*0.02+bob,hr=r*0.34;
+  ctx.fillStyle=color;
+  ctx.beginPath();ctx.ellipse(hx,hy,hr*1.1,hr*0.85,0,0,Math.PI*2);ctx.fill();ol(1.5);
+  ctx.fillStyle=shade(color,-20);
+  ctx.beginPath();ctx.ellipse(hx+hr*0.8,hy+hr*0.18,hr*0.35,hr*0.26,0,0,Math.PI*2);ctx.fill();
+  dinoEye(hx+hr*0.12,hy-hr*0.25,hr*0.22,false);
+  return {hx:hx,hy:hy,hr:hr*1.4};
+}
+function drawBrachioBody(r,anim,color,belly){
+  const bob=Math.sin(anim)*1.2,leg=Math.sin(anim*2)*2;
+  const dark=shade(color,-25),lite=shade(color,20);
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.moveTo(-r*0.5,-r*0.3+bob);
+  ctx.quadraticCurveTo(-r*1.8,-r*0.15+bob,-r*2.2,r*0.15+bob);
+  ctx.quadraticCurveTo(-r*1.5,r*0.35+bob,-r*0.3,r*0.5+bob);
+  ctx.closePath();ctx.fill();ol();
+  ctx.fillStyle=dark;
+  ctx.fillRect(-r*0.55,r*0.35+bob,r*0.24,r*0.6-leg*0.3);
+  ctx.fillRect(r*0.3,r*0.3+bob,r*0.26,r*0.65+leg*0.3);
+  ctx.fillStyle=color;
+  ctx.beginPath();ctx.ellipse(0,bob,r*0.95,r*0.62,-0.12,0,Math.PI*2);ctx.fill();ol();
+  ctx.fillStyle=lite;
+  ctx.beginPath();ctx.ellipse(-r*0.05,-r*0.24+bob,r*0.58,r*0.2,-0.12,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=belly;
+  ctx.beginPath();ctx.ellipse(r*0.05,r*0.28+bob,r*0.6,r*0.28,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=color;
+  ctx.fillRect(-r*0.4,r*0.4+bob,r*0.26,r*0.58+leg*0.3);
+  ctx.fillRect(r*0.45,r*0.35+bob,r*0.28,r*0.62-leg*0.3);
+  ctx.strokeStyle=color;ctx.lineWidth=r*0.34;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(r*0.55,-r*0.35+bob);
+  ctx.quadraticCurveTo(r*0.95,-r*1.2+bob,r*0.85,-r*1.85+bob);
+  ctx.stroke();
+  const hx=r*0.88,hy=-r*1.95+bob,hr=r*0.26;
+  ctx.fillStyle=color;
+  ctx.beginPath();ctx.ellipse(hx,hy,hr*1.3,hr,0.1,0,Math.PI*2);ctx.fill();ol(1.5);
+  ctx.fillStyle=shade(color,-15);
+  ctx.beginPath();ctx.ellipse(hx+hr*0.95,hy+hr*0.12,hr*0.4,hr*0.3,0,0,Math.PI*2);ctx.fill();
+  dinoEye(hx+hr*0.1,hy-hr*0.22,hr*0.28,false);
+  return {hx:hx,hy:hy,hr:hr*1.5};
+}
+function raptorLeg(r,x,bob,swing,col){
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.ellipse(x,r*0.28+bob,r*0.22,r*0.3,swing*0.2,0,Math.PI*2);ctx.fill();
+  ctx.save();ctx.translate(x,r*0.42+bob);ctx.rotate(swing*0.25);
+  ctx.fillRect(-r*0.06,0,r*0.12,r*0.4);
+  ctx.strokeStyle='#f5ead0';ctx.lineWidth=Math.max(1.5,r*0.07);ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(r*0.02,r*0.38);ctx.quadraticCurveTo(r*0.16,r*0.3,r*0.2,r*0.44);ctx.stroke();
+  ctx.restore();
+}
+function drawRaptorBody(r,anim,color,belly){
+  const bob=Math.sin(anim)*1.5,leg=Math.sin(anim*2);
+  const dark=shade(color,-32);
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.moveTo(-r*0.3,-r*0.3+bob);
+  ctx.quadraticCurveTo(-r*1.6,-r*0.62+bob,-r*2.3,-r*0.55+bob);
+  ctx.quadraticCurveTo(-r*1.5,-r*0.15+bob,-r*0.2,r*0.25+bob);
+  ctx.closePath();ctx.fill();ol();
+  raptorLeg(r,-r*0.05,bob,-leg,dark);
+  ctx.fillStyle=color;
+  ctx.beginPath();ctx.ellipse(0,bob,r*0.85,r*0.5,-0.15,0,Math.PI*2);ctx.fill();ol();
+  ctx.strokeStyle=dark;ctx.lineWidth=r*0.1;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-r*0.32,-r*0.38+bob);ctx.quadraticCurveTo(-r*0.26,bob,-r*0.36,r*0.28+bob);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(r*0.02,-r*0.44+bob);ctx.quadraticCurveTo(r*0.08,bob,-r*0.02,r*0.32+bob);ctx.stroke();
+  ctx.fillStyle=belly;
+  ctx.beginPath();ctx.ellipse(r*0.16,r*0.2+bob,r*0.42,r*0.2,-0.1,0,Math.PI*2);ctx.fill();
+  raptorLeg(r,r*0.12,bob,leg,color);
+  ctx.strokeStyle=color;ctx.lineWidth=r*0.12;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(r*0.35,bob);ctx.lineTo(r*0.55,r*0.18+bob);ctx.stroke();
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.moveTo(r*0.32,-r*0.32+bob);
+  ctx.quadraticCurveTo(r*0.7,-r*0.75+bob,r*0.95,-r*0.7+bob);
+  ctx.lineTo(r*0.95,-r*0.3+bob);
+  ctx.quadraticCurveTo(r*0.6,-r*0.05+bob,r*0.38,r*0.05+bob);
+  ctx.closePath();ctx.fill();
+  const hx=r*1.0,hy=-r*0.55+bob,hr=r*0.3;
+  ctx.beginPath();ctx.ellipse(hx,hy,hr,hr*0.72,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(hx+hr*0.15,hy-hr*0.42);
+  ctx.lineTo(hx+hr*1.6,hy-hr*0.02);
+  ctx.lineTo(hx+hr*1.55,hy+hr*0.26);
+  ctx.lineTo(hx+hr*0.15,hy+hr*0.46);
+  ctx.closePath();ctx.fill();ol(1.5);
+  ctx.fillStyle='#fff';
+  for(let i=0;i<3;i++){const tx=hx+hr*(0.42+i*0.34);
+    ctx.beginPath();ctx.moveTo(tx,hy+hr*0.3);ctx.lineTo(tx+hr*0.09,hy+hr*0.48);ctx.lineTo(tx+hr*0.18,hy+hr*0.27);ctx.closePath();ctx.fill();}
+  dinoEye(hx+hr*0.08,hy-hr*0.1,hr*0.2,true);
+  return null;
+}
+function drawDino(x,y,r,face,species,anim,acc,opts){
+  opts=opts||{};
+  ctx.save();ctx.translate(x,y);
+  drawShadow(r);
+  ctx.scale(face,1);
+  let head=null;
+  if(species==='rex'){head=drawRexBody(r,anim,'#c9553d','#e8a68c');}
+  else if(species==='anky'){head=drawAnkyBody(r,anim,'#7a6bb8','#c5bde8');}
+  else if(species==='brachio'){head=drawBrachioBody(r,anim,'#4d9e8a','#a8dccb');}
+  else if(species==='raptor'){drawRaptorBody(r,anim,'#c9352b','#f0a08c');}
+  else if(species==='boss'){
+    const c=opts.rage?'#8f1f14':'#5c2d82';
+    head=drawRexBody(r,anim,c,'#c9a0e8');
+    ctx.fillStyle=shade(c,-40);
+    const bob=Math.sin(anim)*1.5;
+    for(let i=0;i<4;i++){const sx=-r*0.72+i*r*0.36,sy=-r*0.48+bob+Math.abs(i-1.5)*r*0.06;
+      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+r*0.14,sy-r*0.42);ctx.lineTo(sx+r*0.28,sy);ctx.closePath();ctx.fill();}
+  }
+  if(head&&acc)drawAccessory(acc,head.hx,head.hy,head.hr);
+  ctx.restore();
+}
+function drawTree(t){
+  ctx.fillStyle='#7a5232';ctx.fillRect(t.x-6,t.y-8,12,34);
+  if(t.leaves){ctx.fillStyle='#3f8f3a';
+    ctx.beginPath();ctx.arc(t.x,t.y-26,t.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#57b544';ctx.beginPath();ctx.arc(t.x-10,t.y-18,t.r*0.6,0,Math.PI*2);ctx.fill();}
+}
+function drawGround(){
+  ctx.fillStyle='#79c14e';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(93,163,58,.5)';
+  for(let i=0;i<8;i++){const gx=(i*173)%W,gy=(i*271)%H;
+    ctx.beginPath();ctx.ellipse(gx,gy,60,26,0,0,Math.PI*2);ctx.fill();}
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);drawGround();
+  if((mode==='level'||mode==='boss')&&world){
+    for(const t of world.trees)drawTree(t);
+    for(const b of world.bushes){ctx.fillStyle='#3f8f3a';
+      ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#e0523d';ctx.beginPath();ctx.arc(b.x-5,b.y-4,3,0,Math.PI*2);ctx.arc(b.x+6,b.y+2,3,0,Math.PI*2);ctx.fill();}
+    for(const e of world.eggs){ctx.fillStyle='#fff7e0';
+      ctx.beginPath();ctx.ellipse(e.x,e.y,e.r*0.8,e.r,0,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#d9c9a0';ctx.stroke();}
+    for(const pr of world.prey){ctx.fillStyle='#b08968';
+      ctx.beginPath();ctx.ellipse(pr.x,pr.y,pr.r,pr.r*0.7,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#222';ctx.beginPath();ctx.arc(pr.x+4,pr.y-2,1.6,0,Math.PI*2);ctx.fill();}
+    for(const r of world.raptors)drawDino(r.x,r.y,r.r,(world.player.x>r.x?1:-1),'raptor',world.t*8,null);
+    if(mode==='boss'){const b=world.boss;
+      drawDino(b.x,b.y,b.r,(world.player.x>b.x?1:-1),'boss',world.t*5,'crown',{rage:b.charging});}
+    const p=world.player;
+    drawDino(p.x,p.y,p.r,p.face,S.dino,p.anim,S.wearing);
+    ctx.font='700 15px Fredoka,sans-serif';ctx.textAlign='center';
+    for(const o of world.pops){ctx.globalAlpha=1-o.t;ctx.fillStyle=o.color;ctx.fillText(o.txt,o.x,o.y);ctx.globalAlpha=1;}
+  }
+  if(mode==='chomp'&&chomp){
+    ctx.fillStyle='rgba(20,40,60,.25)';ctx.fillRect(0,0,W,H);
+    for(const d of chomp.dots){ctx.fillStyle='#ffd34d';ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,Math.PI*2);ctx.fill();}
+    drawDino(chomp.rival.x,chomp.rival.y,chomp.rival.r,chomp.rival.vx>0?1:-1,'raptor',performance.now()/120,null);
+    drawDino(chomp.player.x,chomp.player.y,chomp.player.r,chomp.player.face,S.dino,performance.now()/120,S.wearing);
+    ctx.fillStyle='#fff';ctx.font='700 20px Fredoka,sans-serif';ctx.textAlign='center';
+    ctx.fillText('🐍 CHOMP CHASE  '+Math.ceil(Math.max(0,chomp.t))+'s   Eaten: '+chomp.player.eaten,W/2,40);
+  }
+}
+
+/* ============ WIRING ============ */
+function setDiffUI(){
+  document.querySelectorAll('.diffbtn').forEach(b=>{
+    const on=b.dataset.diff===S.diff;
+    b.classList.toggle('gray',!on);b.classList.toggle('gold',on);
+  });
+}
+document.querySelectorAll('.diffbtn').forEach(b=>{
+  b.onclick=()=>{S.diff=b.dataset.diff;setDiffUI();saveGame();toast(DIFF[S.diff].label+' mode set!');};
+});
+setDiffUI();
+document.querySelectorAll('.dcard').forEach(c=>{
+  c.onclick=()=>{S.dino=c.dataset.dino;S.level=1;setPoints(0);
+    S.up={power:0,armor:0,speed:0};S.owned=[];S.wearing=null;
+    saveGame();showIntro();};
+});
+$('btnContinue').onclick=()=>showIntro();
+$('btnStart').onclick=()=>startLevel();
+$('btnRetry').onclick=()=>{hideAllOverlays();showIntro();};
+$('btnNext').onclick=()=>{ if(!maybeOfferMini()) showIntro(); };
+$('btnBossNext').onclick=()=>{ if(!maybeOfferMini()) showIntro(); };
+$('btnShop').onclick=()=>{renderShop();hideAllOverlays();show('scrShop');};
+$('btnShopDone').onclick=()=>{ if(!maybeOfferMini()) showIntro(); };
+$('btnSkipMini').onclick=()=>{toast('Skipped! On to the next level.');openShopGate();};
+$('btnPlayMini').onclick=()=>{
+  hideAllOverlays();
+  if(pendingMini.id==='chomp'){mode='chomp';buildChomp();}
+  else if(pendingMini.id==='shapes'){startShapes();}
+  else{startSpin();}
+};
+
+/* ============ BOOT ============ */
+(async function boot(){
+  const save=await loadGame();
+  if(save&&save.dino){
+    S.level=save.level||1;setPoints(save.points||0);S.dino=save.dino;
+    S.up=save.up||{power:0,armor:0,speed:0};S.owned=save.owned||[];S.wearing=save.wearing||null;
+    S.diff=save.diff||'intermediate';setDiffUI();
+    $('saveNote').textContent=`Saved game found: ${DINOS[S.dino].name}, Level ${S.level}, ${S.points} points. Continue, or pick a dino to start over.`;
+    $('btnContinue').classList.remove('hidden');
+  }
+})();
+if('serviceWorker' in navigator && location.protocol.indexOf('http')===0 && !window.storage){
+  try{navigator.serviceWorker.register('sw.js').catch(function(){});}catch(e){}
+}
+</script>
+</body>
+</html>
