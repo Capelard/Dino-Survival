@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v3.1</title>
+<title>Dino Survival v3.2</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -145,7 +145,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.1</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.2</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -243,7 +243,16 @@
     <p class="sub">Tap a shape, then tap its matching hole! <b id="shapeTimer">15</b>s</p>
     <div class="holeRow" id="holeRow"></div>
     <div class="shapes" id="shapeRow"></div>
-    <p class="sub">+3 points each. All three = +6 bonus!</p>
+    <p class="sub">Match all three before time runs out for +15 🪙. Run out of time = no points!</p>
+  </div>
+</div>
+<div id="scrMath" class="overlay hidden">
+  <div class="panel">
+    <h2 id="mathTitle">🧮 Math Dash</h2>
+    <p class="sub">Pick the right answer! <b id="mathTimer">50</b>s</p>
+    <p id="mathQ" style="font-size:34px;font-weight:700;margin:12px 0"></p>
+    <div id="mathRow" style="display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin:8px 0"></div>
+    <p class="sub" id="mathSub"></p>
   </div>
 </div>
 
@@ -317,11 +326,32 @@ function resize(){ DPR=Math.min(window.devicePixelRatio||1,2);
 window.addEventListener('resize',resize);resize();
 
 /* ============ INPUT ============ */
-const input={active:false,x:0,y:0,keys:{}};
+const input={active:false,id:null,x:0,y:0,keys:{}};
 let cam={x:0,y:0};
-cv.addEventListener('pointerdown',e=>{input.active=true;input.x=e.clientX;input.y=e.clientY;onTap(e.clientX,e.clientY);});
-cv.addEventListener('pointermove',e=>{if(input.active){input.x=e.clientX;input.y=e.clientY;}});
-window.addEventListener('pointerup',()=>input.active=false);
+/* control knobs (v3.2): bottom corners, either hand. Optional next to touch-to-follow. */
+const KNOB_R=50;
+const knobs=[{cx:0,cy:0,id:null,dx:0,dy:0},{cx:0,cy:0,id:null,dx:0,dy:0}];
+function knobLayout(){knobs[0].cx=76;knobs[0].cy=H-90;knobs[1].cx=W-76;knobs[1].cy=H-90;}
+knobLayout();window.addEventListener('resize',knobLayout);
+function knobsOn(){return mode==='level'||mode==='boss'||mode==='chomp';}
+function knobSet(k,px,py){
+  let dx=(px-k.cx)/KNOB_R,dy=(py-k.cy)/KNOB_R;
+  const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m;}
+  k.dx=dx;k.dy=dy;
+}
+cv.addEventListener('pointerdown',e=>{
+  if(knobsOn())for(const k of knobs){
+    if(k.id===null&&Math.hypot(e.clientX-k.cx,e.clientY-k.cy)<KNOB_R+16){
+      k.id=e.pointerId;knobSet(k,e.clientX,e.clientY);return;}}
+  input.active=true;input.id=e.pointerId;input.x=e.clientX;input.y=e.clientY;onTap(e.clientX,e.clientY);});
+cv.addEventListener('pointermove',e=>{
+  for(const k of knobs)if(k.id===e.pointerId){knobSet(k,e.clientX,e.clientY);return;}
+  if(input.active&&(input.id===null||input.id===e.pointerId)){input.x=e.clientX;input.y=e.clientY;}});
+function releasePtr(e){
+  for(const k of knobs)if(k.id===e.pointerId){k.id=null;k.dx=0;k.dy=0;return;}
+  input.active=false;input.id=null;}
+window.addEventListener('pointerup',releasePtr);
+window.addEventListener('pointercancel',releasePtr);
 window.addEventListener('keydown',e=>input.keys[e.key]=true);
 window.addEventListener('keyup',e=>input.keys[e.key]=false);
 
@@ -459,9 +489,10 @@ function buildChomp(){
     dots:[],reward:0,over:false};
   for(let i=0;i<14;i++) chomp.dots.push({x:rand(30,W-30),y:rand(90,H-60),r:6});
 }
+function rewardSuffix(n){return n>0?('  +'+n+' 🪙'):'  No points this time!';}
 function endChomp(msg){
   if(chomp.over)return; chomp.over=true;
-  addPoints(chomp.reward); toast(msg+`  +${chomp.reward} 🪙`,2200);
+  addPoints(chomp.reward); toast(msg+rewardSuffix(chomp.reward),2200);
   setTimeout(()=>{mode='none';openShopGate();},1400);
 }
 
@@ -492,7 +523,14 @@ function playerControl(p,dt,speed){
   if(input.keys['ArrowUp']||input.keys['w'])my-=1;
   if(input.keys['ArrowDown']||input.keys['s'])my+=1;
   if(mx||my){const d=Math.hypot(mx,my);p.x+=mx/d*speed*dt;p.y+=my/d*speed*dt;if(mx)p.face=mx>0?1:-1;}
-  else if(input.active){moveToward(p,input.x+cam.x,input.y+cam.y,speed,dt);}
+  else{
+    let kx=0,ky=0;for(const k of knobs){kx+=k.dx;ky+=k.dy;}
+    const km=Math.hypot(kx,ky);
+    if(km>0.16){const s=Math.min(1,km);
+      p.x+=kx/km*s*speed*dt;p.y+=ky/km*s*speed*dt;
+      if(Math.abs(kx)>0.08)p.face=kx>0?1:-1;}
+    else if(input.active){moveToward(p,input.x+cam.x,input.y+cam.y,speed,dt);}
+  }
   const inWorld=(mode==='level'||mode==='boss')&&world;
   const bw=inWorld?world.w:W, bh=inWorld?world.h:H;
   p.x=clamp(p.x,20,bw-20);p.y=clamp(p.y,70,bh-40);
@@ -679,7 +717,7 @@ function tickChomp(dt){
   }
   if(dist(p,r)<p.r+r.r){
     if(p.r>r.r){chomp.reward+=10;endChomp('🏆 You ate the rival dino!');}
-    else{endChomp('😵 The bigger dino got you!');}
+    else{chomp.reward=0;endChomp('😵 The bigger dino got you!');}
   }
   if(chomp.t<=0)endChomp('⏱️ Time up!');
 }
@@ -721,10 +759,7 @@ function buildMaze(q){
   world.maze.R=Rw;world.maze.B=Bw;
   // wall rects (collision + hedge render)
   function addWall(x,y,hw,hh){
-    const wl={x,y,hw,hh,rect:true,blobs:[]};
-    const n=Math.max(4,Math.round(hw*hh/380)),cset=['#3a9440','#256428','#48a84e','#2e7d32'];
-    for(let i=0;i<n;i++)wl.blobs.push({ox:rand(6,Math.max(8,hw*2-6)),oy:rand(2,hh*2+12),
-      r:rand(5,10),c:cset[Math.floor(rand(0,cset.length))]});
+    const wl={x,y,hw,hh,rect:true,img:hedgeCvs(hw,hh)};
     world.walls.push(wl);world.obs.push(wl);
   }
   const gw=cols*CS,gh=rows*CS,HW=WT/2;
@@ -793,13 +828,35 @@ function mazePatrolTarget(rp){
 function rrPath(x,y,w,h,r){r=Math.min(r,w/2,h/2);
   ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
   ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+/* v3.2: hedges are prerendered leaf clusters. No per-segment rect or outline, and the
+   leaves bleed past each segment end, so neighboring segments merge into one bush. */
+const HEDGE_PAD=24,HEDGE_TOP=16;
+function hedgeCvs(hw,hh){
+  const P=HEDGE_PAD,TOP=HEDGE_TOP;
+  const c=envCvs(Math.ceil(hw*2+P*2),Math.ceil(hh*2+TOP+P*2)),x=c.getContext('2d');
+  const bx=P,by=P,bw=hw*2,bh=hh*2+TOP,horiz=bw>=bh;
+  const pts=[],L=horiz?bw:bh;
+  for(let u=-5;u<=L+5;u+=9){
+    const a=rand(0.22,0.44),b2=rand(0.56,0.8);
+    if(horiz){pts.push({x:bx+u+rand(-3,3),y:by+bh*a,r:rand(11,15)});
+      pts.push({x:bx+u+rand(-3,3),y:by+bh*b2,r:rand(11,15)});}
+    else{pts.push({x:bx+bw*a,y:by+u+rand(-3,3),r:rand(11,15)});
+      pts.push({x:bx+bw*b2,y:by+u+rand(-3,3),r:rand(11,15)});}
+  }
+  x.fillStyle='#1f5c23';
+  for(const p of pts){x.beginPath();x.arc(p.x,p.y+3,p.r+2.5,0,Math.PI*2);x.fill();}
+  const cset=['#3a9440','#2e7d32','#48a84e','#357f38'];
+  for(const p of pts){x.fillStyle=cset[Math.floor(rand(0,4))];
+    x.beginPath();x.arc(p.x,p.y,p.r,0,Math.PI*2);x.fill();}
+  x.fillStyle='rgba(255,255,255,.13)';
+  for(let i=0;i<pts.length;i+=3){const p=pts[i];
+    x.beginPath();x.arc(p.x-p.r*0.25,p.y-p.r*0.35,p.r*0.42,0,Math.PI*2);x.fill();}
+  return c;
+}
 function drawWallEnv(wl){
-  const x0=wl.x-wl.hw,y0=wl.y-wl.hh-16,w=wl.hw*2,h=wl.hh*2+16;
-  ctx.fillStyle='rgba(0,0,0,.13)';
-  ctx.beginPath();ctx.ellipse(wl.x,wl.y+wl.hh,wl.hw+5,9,0,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#2e7d32';rrPath(x0,y0,w,h,13);ctx.fill();
-  for(const b of wl.blobs){ctx.fillStyle=b.c;ctx.beginPath();ctx.arc(x0+b.ox,y0+b.oy,b.r,0,Math.PI*2);ctx.fill();}
-  ctx.strokeStyle='rgba(24,66,24,.55)';ctx.lineWidth=3;rrPath(x0,y0,w,h,13);ctx.stroke();
+  ctx.fillStyle='rgba(0,0,0,.10)';
+  ctx.beginPath();ctx.ellipse(wl.x,wl.y+wl.hh,wl.hw+6,9,0,0,Math.PI*2);ctx.fill();
+  ctx.drawImage(wl.img,wl.x-wl.hw-HEDGE_PAD,wl.y-wl.hh-HEDGE_TOP-HEDGE_PAD);
 }
 function drawMazeMap(){
   const M=world.maze;let mw,mh;
@@ -844,7 +901,7 @@ function buildRunner(){
 function runnerJump(){const R2=runner;if(R2&&!R2.over&&R2.py===0)R2.vy=-960;}
 function endRunner(msg){
   if(!runner||runner.over)return;runner.over=true;
-  addPoints(runner.reward);toast(msg+`  +${runner.reward} 🪙`,2400);
+  addPoints(runner.reward);toast(msg+rewardSuffix(runner.reward),2400);
   setTimeout(()=>{mode='none';runner=null;openShopGate();},1700);
 }
 function tickRunner(dt){
@@ -872,7 +929,7 @@ function tickRunner(dt){
     const oy0=b2.air?R2.gy-84:R2.gy-b2.h,oy1=b2.air?R2.gy-84+b2.h:R2.gy;
     if(R2.inv<=0&&px+pr>ox0&&px-pr<ox1&&pBot>oy0&&pTop<oy1){
       R2.hearts--;R2.inv=1.2;
-      if(R2.hearts<=0){endRunner('😵 Wiped out at '+Math.floor(R2.x/50)+'m!');return;}
+      if(R2.hearts<=0){R2.reward=0;endRunner('😵 Wiped out at '+Math.floor(R2.x/50)+'m!');return;}
       toast('💥 Ouch!  '+'❤️'.repeat(R2.hearts));
     }
   }
@@ -1057,6 +1114,47 @@ function drawMarble(){
 
 /* ============ TILT MAZE MINI GAME (v3.1) ============ */
 let tilt=null;
+/* v3.2: Tilt Maze is tilt-only. Sensor blocked -> Marble Race substitutes for the session. */
+let tiltBlocked=false;
+const tiltSensor={on:false,base:null,tx:0,ty:0,seen:false};
+function tiltHandler(e){
+  if(e.gamma==null&&e.beta==null)return;
+  tiltSensor.seen=true;
+  const g=e.gamma||0,b=e.beta||0;
+  let ang=0;
+  try{ang=(screen.orientation&&screen.orientation.angle!=null)?screen.orientation.angle:(window.orientation||0);}catch(err){}
+  let rx,ry;
+  if(ang===90){rx=b;ry=-g;}
+  else if(ang===-90||ang===270){rx=-b;ry=g;}
+  else if(ang===180){rx=-g;ry=-b;}
+  else{rx=g;ry=b;}
+  if(!tiltSensor.base)tiltSensor.base={x:rx,y:ry};
+  tiltSensor.tx=clamp((rx-tiltSensor.base.x)/20,-1,1);
+  tiltSensor.ty=clamp((ry-tiltSensor.base.y)/20,-1,1);
+}
+async function tryEnableTilt(){
+  try{
+    if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+      const r=await DeviceOrientationEvent.requestPermission();
+      if(r!=='granted')return false;
+    }
+    if(!tiltSensor.on){window.addEventListener('deviceorientation',tiltHandler);tiltSensor.on=true;}
+    tiltSensor.seen=false;
+    await new Promise(res=>setTimeout(res,900));
+    return tiltSensor.seen;
+  }catch(err){return false;}
+}
+function startTiltGate(){
+  const touch=('ontouchstart' in window)||(navigator.maxTouchPoints>0);
+  if(!touch){mode='tilt';buildTilt();$('btnPause').style.display='block';return;}
+  toast('Checking the tilt sensor...',900);
+  tryEnableTilt().then(ok=>{
+    if(ok){mode='tilt';buildTilt();$('btnPause').style.display='block';}
+    else{tiltBlocked=true;
+      toast('📵 Tilt is blocked on this device. Marble Race instead!',2600);
+      setTimeout(openMarblePick,900);}
+  });
+}
 const TILT_LAYOUTS=[
  {walls:[[0.35,0.33,0.35,0.024],[0.65,0.66,0.35,0.024]],
   holes:[[0.45,0.16],[0.6,0.5],[0.3,0.42],[0.55,0.76],[0.86,0.7]],
@@ -1070,13 +1168,14 @@ const TILT_LAYOUTS=[
 ];
 function buildTilt(li){
   cam.x=0;cam.y=0;
+  tiltSensor.base=null;tiltSensor.tx=0;tiltSensor.ty=0;
   const cfg=({beginner:{holes:2,acc:640,time:50},
     intermediate:{holes:4,acc:760,time:45},
     advanced:{holes:5,acc:880,time:40}})[S.diff]||{holes:4,acc:760,time:45};
   const L=TILT_LAYOUTS[(li===undefined)?Math.floor(rand(0,TILT_LAYOUTS.length)):li];
   const bx=20,by=84,bw=W-40,bh=H-84-28;
   const sx=v=>bx+v*bw,sy=v=>by+v*bh;
-  tilt={t:0,time:cfg.time,acc:cfg.acc,balls:3,over:false,inv:0,reward:2,bx,by,bw,bh,
+  tilt={t:0,time:cfg.time,acc:cfg.acc,balls:3,over:false,inv:0,reward:0,bx,by,bw,bh,
     walls:L.walls.map(w2=>({x:sx(w2[0]),y:sy(w2[1]),hw:w2[2]*bw,hh:w2[3]*bh})),
     holes:L.holes.slice(0,cfg.holes).map(h2=>({x:sx(h2[0]),y:sy(h2[1]),r:17})),
     start:{x:sx(L.start[0]),y:sy(L.start[1])},
@@ -1085,7 +1184,7 @@ function buildTilt(li){
 }
 function endTilt(msg){
   if(!tilt||tilt.over)return;tilt.over=true;
-  addPoints(tilt.reward);toast(msg+'  +'+tilt.reward+' 🪙',2400);
+  addPoints(tilt.reward);toast(msg+rewardSuffix(tilt.reward),2400);
   setTimeout(()=>{mode='none';tilt=null;openShopGate();},1700);
 }
 function tickTilt(dt){
@@ -1096,10 +1195,7 @@ function tickTilt(dt){
   if(input.keys['ArrowRight']||input.keys['d'])tx+=1;
   if(input.keys['ArrowUp']||input.keys['w'])ty-=1;
   if(input.keys['ArrowDown']||input.keys['s'])ty+=1;
-  if(!tx&&!ty&&input.active){
-    tx=clamp((input.x-W/2)/(W*0.32),-1,1);
-    ty=clamp((input.y-H/2)/(H*0.32),-1,1);
-  }
+  if(!tx&&!ty){tx=tiltSensor.tx;ty=tiltSensor.ty;}
   const b=T2.ball;
   b.vx+=tx*T2.acc*dt;b.vy+=ty*T2.acc*dt;
   b.vx*=(1-2.6*dt);b.vy*=(1-2.6*dt);
@@ -1121,7 +1217,7 @@ function tickTilt(dt){
   if(T2.inv<=0)for(const h2 of T2.holes){
     if(Math.hypot(b.x-h2.x,b.y-h2.y)<12){
       T2.balls--;
-      if(T2.balls<=0){endTilt('😵 Out of marbles!');return;}
+      if(T2.balls<=0){T2.reward=0;endTilt('😵 Out of marbles!');return;}
       toast('🕳️ Down the hole! '+T2.balls+' left');
       b.x=T2.start.x;b.y=T2.start.y;b.vx=0;b.vy=0;T2.inv=0.8;
       break;
@@ -1131,7 +1227,7 @@ function tickTilt(dt){
     T2.reward=Math.min(18,8+Math.ceil(Math.max(0,T2.time-T2.t)/4));
     endTilt('🏆 You made it!');return;
   }
-  if(T2.t>=T2.time){T2.reward=2;endTilt('⏱️ Time up!');}
+  if(T2.t>=T2.time){T2.reward=0;endTilt('⏱️ Time up!');}
 }
 function drawTilt(){
   const T2=tilt;if(!T2)return;
@@ -1163,7 +1259,7 @@ function drawTilt(){
   ctx.fillStyle='#fff7e0';ctx.font='700 20px Fredoka,sans-serif';ctx.textAlign='center';
   ctx.fillText('🕳️ TILT MAZE  ⏱️'+Math.ceil(Math.max(0,T2.time-T2.t))+'s   Marbles: '+T2.balls,W/2,40);
   ctx.font='600 13px Fredoka,sans-serif';ctx.fillStyle='rgba(255,247,224,.85)';
-  ctx.fillText('Hold and drag to tilt the board · roll to the green pad!',W/2,H-10);
+  ctx.fillText((tiltSensor.on?'TILT your tablet':'Arrow keys')+' to roll the marble to the green pad!',W/2,H-10);
 }
 
 /* ============ QUEST / FLOW ============ */
@@ -1196,9 +1292,17 @@ function openMiniOffer(){
     {id:'spin',emo:'🎰',text:'Lucky Spin! Spend 1 point a spin. Match 3 for a +25 jackpot!'},
     {id:'runner',emo:'🏃',text:'Dino Run! Auto-run: JUMP over rocks and cactus, DUCK under branches. Distance = points!'},
     {id:'marble',emo:'🏁',text:'Marble Race! Bet 2 points on a dino marble dropping through the pegs. Winner gets +10!'},
-    {id:'tilt',emo:'🕳️',text:'Tilt Maze! Hold and drag to tilt the board. Roll your marble to the green pad and dodge the holes!'}
+    {id:'tilt',emo:'🕳️',text:'Tilt Maze! TILT your tablet to roll the marble to the green pad and dodge the holes!'}
   ];
-  pendingMini=games[Math.floor(rand(0,games.length))];
+  const pool=tiltBlocked?games.filter(g2=>g2.id!=='tilt'):games;
+  pendingMini=pool[Math.floor(rand(0,pool.length))];
+  if(pendingMini.id==='shapes'){
+    pendingMini=S.diff==='beginner'
+      ?{id:'shapes',emo:'🔷',text:'Shape Sorter! Match ALL the shapes to their holes before time runs out. Clear the board for +15 points!'}
+      :S.diff==='intermediate'
+      ?{id:'shapes',emo:'🧮',text:'Math Dash! Answer 5 plus and minus questions. +4 points for each right answer!'}
+      :{id:'shapes',emo:'🧮',text:'Math Dash! Answer 5 times and divide questions. +6 points for each right answer!'};
+  }
   $('offerEmo').textContent=pendingMini.emo;
   $('offerText').textContent=pendingMini.text+'  Play for bonus points, or skip and keep going.';
   hideAllOverlays();show('scrOffer');
@@ -1256,30 +1360,111 @@ function renderShop(){
 
 /* ============ SHAPE SORTER ============ */
 let shapeState=null;
+/* v3.2: shapes is beginner only; intermediate and advanced get Math Dash instead.
+   Points land only on a full clear. Time up = no points (zero-on-fail rule). */
+const SHAPE_POOL=[{k:'circle',e:'🔴'},{k:'square',e:'🟦'},{k:'tri',e:'🔺'},{k:'star',e:'⭐'},
+  {k:'heart',e:'❤️'},{k:'moon',e:'🌙'},{k:'diamond',e:'🔶'},{k:'egg',e:'🥚'}];
 function startShapes(){
+  if(S.diff==='beginner')startShapeSort();
+  else startMathDash();
+}
+function startShapeSort(){
   hideAllOverlays();show('scrShapes');
-  const defs=[{k:'circle',e:'🔴'},{k:'square',e:'🟦'},{k:'tri',e:'🔺'}].sort(()=>Math.random()-.5);
-  shapeState={time:(S.diff==='beginner'?20:S.diff==='advanced'?12:15),placed:0,sel:null,done:false};
+  const defs=[...SHAPE_POOL].sort(()=>Math.random()-.5).slice(0,3);
+  shapeState={time:20,placed:0,sel:null,done:false};
   const hr=$('holeRow'),sr=$('shapeRow');hr.innerHTML='';sr.innerHTML='';
   const holes=[...defs].sort(()=>Math.random()-.5);
   for(const h of holes){const d=document.createElement('div');d.className='hole';d.dataset.k=h.k;d.textContent=h.e;hr.appendChild(d);
     d.onclick=()=>{if(shapeState.done||!shapeState.sel)return;
       if(shapeState.sel.dataset.k===h.k&&!d.classList.contains('filled')){
         d.classList.add('filled');shapeState.sel.classList.add('used');shapeState.sel=null;
-        shapeState.placed++;addPoints(3);toast('+3 🪙');
-        if(shapeState.placed===3){addPoints(6);finishShapes('🌟 All shapes! +6 bonus!');}
+        shapeState.placed++;toast('Nice! '+shapeState.placed+'/3');
+        if(shapeState.placed===3){addPoints(15);finishShapes('🌟 All shapes! +15 🪙');}
       }else{toast('Not that hole! Try again.');}};}
   for(const s of defs){const d=document.createElement('div');d.className='shape';d.dataset.k=s.k;d.textContent=s.e;sr.appendChild(d);
     d.onclick=()=>{if(shapeState.done||d.classList.contains('used'))return;
       document.querySelectorAll('.shape').forEach(x=>x.style.transform='');
       shapeState.sel=d;d.style.transform='scale(1.25)';};}
   shapeState.timer=setInterval(()=>{shapeState.time--;$('shapeTimer').textContent=shapeState.time;
-    if(shapeState.time<=0)finishShapes('⏱️ Time up! You placed '+shapeState.placed+'.');},1000);
+    if(shapeState.time<=0)finishShapes('⏱️ Time up! No points this time.');},1000);
   $('shapeTimer').textContent=shapeState.time;
 }
 function finishShapes(msg){
   if(shapeState.done)return;shapeState.done=true;clearInterval(shapeState.timer);
-  toast(msg,2000);setTimeout(openShopGate,1300);
+  toast(msg,2000);saveGame();setTimeout(openShopGate,1300);
+}
+/* v3.2: Math Dash. Intermediate: plus and minus. Advanced: times and divide,
+   factors up to 12, every answer a whole number. Multiple choice. Wrong answer
+   highlights the correct one and pays nothing for that question. */
+let mathState=null;
+function mathQuestion(adv){
+  if(!adv){
+    if(Math.random()<0.5){const a=Math.floor(rand(3,31)),b=Math.floor(rand(2,21));
+      return {q:a+' + '+b+' = ?',ans:a+b};}
+    const a=Math.floor(rand(6,41)),b=Math.floor(rand(2,a));
+    return {q:a+' − '+b+' = ?',ans:a-b};
+  }
+  if(Math.random()<0.5){const a=Math.floor(rand(2,13)),b=Math.floor(rand(2,13));
+    return {q:a+' × '+b+' = ?',ans:a*b};}
+  const d=Math.floor(rand(2,13)),qt=Math.floor(rand(2,13));
+  return {q:(d*qt)+' ÷ '+d+' = ?',ans:qt};
+}
+function mathChoices(ans){
+  const set=new Set([ans]);let guard=0;
+  while(set.size<4&&guard++<200){
+    let d=Math.random()<0.5?ans+Math.round(rand(-10,10)):ans+(Math.random()<0.5?1:-1)*Math.floor(rand(1,4));
+    if(d<0||d===ans||set.has(d))continue;
+    set.add(d);
+  }
+  let f=1;while(set.size<4){if(!set.has(ans+f))set.add(ans+f);f++;}
+  return [...set].sort(()=>Math.random()-.5);
+}
+function startMathDash(){
+  hideAllOverlays();show('scrMath');
+  const adv=S.diff==='advanced';
+  mathState={adv,i:0,total:5,right:0,pts:0,per:adv?6:4,time:adv?60:50,done:false,lock:false,ans:0};
+  $('mathTitle').textContent=adv?'✖️ Math Dash: Times & Divide':'➕ Math Dash: Plus & Minus';
+  $('mathSub').textContent='+'+mathState.per+' 🪙 for each right answer. Wrong answer = no points for it!';
+  $('mathTimer').textContent=mathState.time;
+  mathState.timer=setInterval(()=>{mathState.time--;$('mathTimer').textContent=mathState.time;
+    if(mathState.time<=0)finishMath();},1000);
+  nextMathQ();
+}
+function nextMathQ(){
+  const M2=mathState;if(!M2||M2.done)return;
+  M2.lock=false;
+  if(M2.i>=M2.total){finishMath();return;}
+  M2.i++;
+  const qa=mathQuestion(M2.adv);M2.ans=qa.ans;
+  $('mathQ').textContent=qa.q;
+  $('mathTitle').textContent=(M2.adv?'✖️':'➕')+' Math Dash  ·  Question '+M2.i+' of '+M2.total;
+  const row=$('mathRow');row.innerHTML='';
+  for(const c of mathChoices(qa.ans)){
+    const b=document.createElement('button');b.className='btn small';b.textContent=c;
+    b.onclick=()=>{
+      if(M2.done||M2.lock)return;M2.lock=true;
+      if(c===M2.ans){
+        b.classList.add('gold');M2.right++;M2.pts+=M2.per;
+        toast('✅ Correct! +'+M2.per+' 🪙');
+      }else{
+        b.style.background='#c0392b';b.style.color='#fff';
+        const kids=row.children||[];
+        for(const ob of kids)if(Number(ob.textContent)===M2.ans){
+          ob.classList.add('gold');ob.style.outline='4px solid #2e7d32';ob.style.transform='scale(1.12)';}
+        toast('❌ Not quite. The answer is '+M2.ans+'.',1800);
+      }
+      setTimeout(nextMathQ,1400);
+    };
+    row.appendChild(b);
+  }
+}
+function finishMath(){
+  if(!mathState||mathState.done)return;
+  mathState.done=true;clearInterval(mathState.timer);
+  if(mathState.pts>0){addPoints(mathState.pts);
+    toast('🧮 '+mathState.right+'/'+mathState.total+' right!  +'+mathState.pts+' 🪙',2400);}
+  else toast('🧮 '+mathState.right+'/'+mathState.total+' right. No points this time!',2400);
+  saveGame();setTimeout(openShopGate,1600);
 }
 
 /* ============ LUCKY SPIN ============ */
@@ -1393,18 +1578,21 @@ function makeFlowerCvs(petal){
   return c;
 }
 function buildEnv(){
-  const g=envCvs(240,240),x=g.getContext('2d');
-  x.fillStyle='#7cc351';x.fillRect(0,0,240,240);
+  const TS=240,g=envCvs(TS,TS),x=g.getContext('2d');
+  x.fillStyle='#7cc351';x.fillRect(0,0,TS,TS);
+  /* v3.2: every shape drawn at 9 wrapped offsets so the tile repeats with no seams */
+  const wrap9=fn=>{for(let ox=-TS;ox<=TS;ox+=TS)for(let oy=-TS;oy<=TS;oy+=TS)fn(ox,oy);};
   const patches=[[36,44,72,26,'#73b849'],[158,92,84,30,'#84cb59'],[84,176,92,28,'#73b849'],[196,186,62,22,'#6eb145'],[12,124,52,20,'#84cb59'],[210,30,56,20,'#73b849']];
-  for(const p of patches){x.fillStyle=p[4];x.beginPath();x.ellipse(p[0],p[1],p[2],p[3],0,0,Math.PI*2);x.fill();}
-  for(let i=0;i<160;i++){const rx=(i*97+13)%240,ry=(i*61+31)%240;
+  for(const p of patches){x.fillStyle=p[4];
+    wrap9((ox,oy)=>{x.beginPath();x.ellipse(p[0]+ox,p[1]+oy,p[2],p[3],0,0,Math.PI*2);x.fill();});}
+  for(let i=0;i<160;i++){const rx=(i*97+13)%TS,ry=(i*61+31)%TS;
     x.fillStyle=(i%2?'rgba(255,255,255,0.05)':'rgba(0,60,0,0.06)');
-    x.beginPath();x.arc(rx,ry,2+(i%3),0,Math.PI*2);x.fill();}
+    wrap9((ox,oy)=>{x.beginPath();x.arc(rx+ox,ry+oy,2+(i%3),0,Math.PI*2);x.fill();});}
   x.strokeStyle='#5da33a';x.lineWidth=2;x.lineCap='round';
-  for(let i=0;i<30;i++){const tx=(i*137+40)%240,ty=(i*83+30)%240;
-    x.beginPath();x.moveTo(tx,ty);x.lineTo(tx-3,ty-6);
-    x.moveTo(tx,ty);x.lineTo(tx+1,ty-7);
-    x.moveTo(tx,ty);x.lineTo(tx+4,ty-5);x.stroke();}
+  for(let i=0;i<30;i++){const tx=(i*137+40)%TS,ty=(i*83+30)%TS;
+    wrap9((ox,oy)=>{x.beginPath();x.moveTo(tx+ox,ty+oy);x.lineTo(tx+ox-3,ty+oy-6);
+      x.moveTo(tx+ox,ty+oy);x.lineTo(tx+ox+1,ty+oy-7);
+      x.moveTo(tx+ox,ty+oy);x.lineTo(tx+ox+4,ty+oy-5);x.stroke();});}
   ENV.pattern=ctx.createPattern(g,'repeat');ENV.grassCvs=g;
   ENV.trees=[makeTreeCvs('#4f9c3e','#6dbd52','#38771f'),
              makeTreeCvs('#68b14b','#8ed06a','#4b8e37'),
@@ -1892,6 +2080,14 @@ function draw(){
   if(mode==='runner')drawRunner();
   if(mode==='marble')drawMarble();
   if(mode==='tilt')drawTilt();
+  if(knobsOn())for(const k of knobs){
+    ctx.globalAlpha=(k.id!==null)?0.55:0.3;
+    ctx.fillStyle='#10240f';ctx.beginPath();ctx.arc(k.cx,k.cy,KNOB_R,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#fff7e0';ctx.lineWidth=3;ctx.beginPath();ctx.arc(k.cx,k.cy,KNOB_R,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='#fff7e0';ctx.beginPath();
+    ctx.arc(k.cx+k.dx*KNOB_R*0.55,k.cy+k.dy*KNOB_R*0.55,20,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=1;
+  }
 }
 
 /* ============ LEVEL MAP ============ */
@@ -2110,7 +2306,7 @@ $('btnPlayMini').onclick=()=>{
   else if(pendingMini.id==='shapes'){startShapes();}
   else if(pendingMini.id==='runner'){mode='runner';buildRunner();$('btnPause').style.display='block';}
   else if(pendingMini.id==='marble'){openMarblePick();}
-  else if(pendingMini.id==='tilt'){mode='tilt';buildTilt();$('btnPause').style.display='block';}
+  else if(pendingMini.id==='tilt'){startTiltGate();}
   else{startSpin();}
 };
 $('btnMarbleSkip').onclick=()=>{toast('Skipped! On to the next level.');openShopGate();};
