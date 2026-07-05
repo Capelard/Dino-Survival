@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v2.1</title>
+<title>Dino Survival v2.2</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -143,7 +143,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v2.1</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v2.2</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -401,8 +401,9 @@ function genDecor(w,nRocks,nFl){
 }
 function buildBoss(){
   S.lives=3;updateLives();
+  const bhp=Math.round((30+S.level*8)*(S.diff==='beginner'?(S.level===5?0.51:0.6):1));
   world={t:0,done:false,w:W,h:H,player:{x:W/2,y:H*0.75,r:22,hp:100,face:1,anim:0},
-    boss:{x:W/2,y:H*0.3,r:52,hp:30+S.level*8,maxhp:30+S.level*8,vx:1,charging:false,chargeT:0,tx:0,ty:0,cool:2},
+    boss:{x:W/2,y:H*0.3,r:52,hp:bhp,maxhp:bhp,vx:1,charging:false,chargeT:0,tx:0,ty:0,cool:2/dmult('enemy')},
     eggs:[],bushes:[],trees:[],prey:[],raptors:[],pops:[],deco:[],flowers:[],obs:[]};
   for(let i=0;i<3;i++) spawnBush();
   genDecor(world,2,7);
@@ -570,8 +571,8 @@ function tickWorld(dt){
     const b=world.boss;
     if(b.charging){
       moveToward(b,b.tx,b.ty,340*dmult('enemy'),dt); b.chargeT-=dt;
-      if(b.chargeT<=0||dist(b,{x:b.tx,y:b.ty})<10){b.charging=false;b.cool=rand(1.5,2.6);}
-      if(dist(p,b)<p.r+b.r){ b.charging=false;b.cool=2; loseLife(); }
+      if(b.chargeT<=0||dist(b,{x:b.tx,y:b.ty})<10){b.charging=false;b.cool=rand(1.5,2.6)/dmult('enemy');}
+      if(dist(p,b)<p.r+b.r){ b.charging=false;b.cool=2/dmult('enemy'); loseLife(); }
     }else{
       b.x+=Math.sin(world.t)*30*dt; b.cool-=dt;
       if(b.cool<=0){b.charging=true;b.chargeT=1.2;b.tx=p.x;b.ty=p.y;
@@ -1178,10 +1179,10 @@ function drawRaptorBody(r,anim,color,belly){
 /* ============ SPRITE ENGINE ============ */
 const SPR={
  rex:{frames:8,eye:{x:0.232,y:0.032,r:0.073},head:{x:0.232,y:0.0,r:0.101}},
- anky:{frames:8,eye:{x:0.275,y:0.281,r:0.065},head:{x:0.275,y:0.087,r:0.091}},
+ anky:{frames:8,eye:{x:0.182,y:0.549,r:0.058},head:{x:0.182,y:0.24,r:0.085}},
  bronto:{frames:8,eye:{x:0.227,y:0.075,r:0.05},head:{x:0.227,y:0.027,r:0.073}},
- stego:{frames:8,eye:{x:0.199,y:0.448,r:0.088},head:{x:0.199,y:0.313,r:0.123}},
- trice:{frames:8,eye:{x:0.195,y:0.269,r:0.11},head:{x:0.195,y:0.06,r:0.16}},
+ stego:{frames:8,eye:{x:0.199,y:0.448,r:0.088},head:{x:0.199,y:0.28,r:0.095}},
+ trice:{frames:8,eye:{x:0.192,y:0.454,r:0.11},head:{x:0.192,y:0.06,r:0.16}},
  raptor:{frames:8,eye:null,head:null},
  boss:{frames:8,eye:{x:0.232,y:0.032,r:0.073},head:{x:0.232,y:0.0,r:0.101}}
 };
