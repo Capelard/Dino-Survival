@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v1.6</title>
+<title>Dino Survival v1.7</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -115,7 +115,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v1.6</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v1.7</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -276,6 +276,7 @@ window.addEventListener('resize',resize);resize();
 
 /* ============ INPUT ============ */
 const input={active:false,x:0,y:0,keys:{}};
+let cam={x:0,y:0};
 cv.addEventListener('pointerdown',e=>{input.active=true;input.x=e.clientX;input.y=e.clientY;onTap(e.clientX,e.clientY);});
 cv.addEventListener('pointermove',e=>{if(input.active){input.x=e.clientX;input.y=e.clientY;}});
 window.addEventListener('pointerup',()=>input.active=false);
@@ -315,40 +316,60 @@ function playerArmor(){ return S.up.armor + (S.dino==='anky'||S.dino==='stego'?1
 
 function buildLevel(){
   const q=questFor(S.level);
-  world={q, t:0, progress:0, done:false,
-    player:{x:W/2,y:H/2,r:22,hp:100,face:1,anim:0},
-    eggs:[],bushes:[],trees:[],prey:[],raptors:[],pops:[],deco:[],flowers:[]};
-  // sparse trees so you can still see
-  const nTrees=3+Math.min(3,Math.floor(S.level/3));
-  for(let i=0;i<nTrees;i++) world.trees.push({x:rand(70,W-70),y:rand(150,H-80),r:26,leaves:true,
-    v:(Math.random()<0.15?2:Math.floor(rand(0,2)))});
-  genDecor(world,2+Math.floor(rand(0,2)),9);
-  for(let i=0;i<6;i++) spawnBush();
-  for(let i=0;i<(q.type==='eggs'?q.need:4);i++) spawnEgg();
-  const nPrey = DINOS[S.dino].diet==='meat' ? Math.max(4,(q.type==='food'?q.need+2:4)) : 2;
+  world={q, t:0, progress:0, done:false, w:Math.round(W*3.2), h:Math.round(H*3.2),
+    player:{x:Math.round(W*1.6),y:Math.round(H*1.6),r:22,hp:100,face:1,anim:0},
+    eggs:[],bushes:[],trees:[],prey:[],raptors:[],pops:[],deco:[],flowers:[],obs:[]};
+  // trees are solid now; count scaled for the big map
+  const nTrees=(3+Math.min(3,Math.floor(S.level/3)))*6;
+  for(let i=0;i<nTrees;i++){
+    const s=openSpot(70,world.w-70,150,world.h-80,110);
+    world.trees.push({x:s.x,y:s.y,r:26,leaves:true,v:(Math.random()<0.15?2:Math.floor(rand(0,2)))});
+    world.obs.push({x:s.x,y:s.y+26,r:24,tree:true});
+  }
+  genDecor(world,10+Math.floor(rand(0,4)),56);
+  for(let i=0;i<20;i++) spawnBush();
+  for(let i=0;i<(q.type==='eggs'?q.need+4:10);i++) spawnEgg();
+  const nPrey = DINOS[S.dino].diet==='meat' ? Math.max(6,(q.type==='food'?q.need+3:6)) : 5;
   for(let i=0;i<nPrey;i++) spawnPrey();
-  const nRaptor=Math.min(1+Math.floor(S.level/2),4);
+  const nRaptor=Math.min(2+Math.floor(S.level/2),5);
   for(let i=0;i<nRaptor;i++) spawnRaptor();
 }
-function spawnBush(){world.bushes.push({x:rand(40,W-40),y:rand(90,H-70),r:16});}
-function spawnEgg(){world.eggs.push({x:rand(40,W-40),y:rand(90,H-70),r:12});}
-function spawnPrey(){world.prey.push({x:rand(40,W-40),y:rand(90,H-70),r:11,vx:rand(-1,1),vy:rand(-1,1)});}
+function openSpot(minX,maxX,minY,maxY,margin){
+  for(let k=0;k<60;k++){
+    const x=rand(minX,maxX),y=rand(minY,maxY);
+    let ok=true;
+    for(const o of world.obs){
+      const m=o.tree?Math.max(margin,95):Math.max(margin,26);
+      if(Math.hypot(x-o.x,y-o.y)<o.r+m){ok=false;break;}
+    }
+    if(ok)return{x:x,y:y};
+  }
+  return{x:rand(minX,maxX),y:rand(minY,maxY)};
+}
+function spawnBush(){const s=openSpot(40,world.w-40,90,world.h-70,30);world.bushes.push({x:s.x,y:s.y,r:16});}
+function spawnEgg(){const s=openSpot(40,world.w-40,90,world.h-70,26);world.eggs.push({x:s.x,y:s.y,r:12});}
+function spawnPrey(){const s=openSpot(40,world.w-40,90,world.h-70,26);world.prey.push({x:s.x,y:s.y,r:11,vx:rand(-1,1),vy:rand(-1,1)});}
 function spawnRaptor(){
-  const edge=Math.floor(rand(0,4));
-  const p=edge===0?{x:-30,y:rand(0,H)}:edge===1?{x:W+30,y:rand(0,H)}:edge===2?{x:rand(0,W),y:-30}:{x:rand(0,W),y:H+30};
-  world.raptors.push({x:p.x,y:p.y,r:18,hp:3,speed:(70+S.level*6)*dmult('enemy'),cool:0});
+  const p=world.player,a=rand(0,Math.PI*2),d=Math.max(W,H)*0.75;
+  world.raptors.push({x:clamp(p.x+Math.cos(a)*d,10,world.w-10),y:clamp(p.y+Math.sin(a)*d,10,world.h-10),
+    r:18,hp:3,speed:(70+S.level*6)*dmult('enemy'),cool:0});
 }
 
 /* ============ BOSS ============ */
 function genDecor(w,nRocks,nFl){
-  for(let i=0;i<nRocks;i++)w.deco.push({x:rand(50,W-50),y:rand(130,H-80),img:ENV.rocks[i%ENV.rocks.length]});
-  for(let i=0;i<nFl;i++)w.flowers.push({x:rand(18,W-18),y:rand(80,H-30),img:ENV.flower[i%ENV.flower.length]});
+  for(let i=0;i<nRocks;i++){
+    const img=ENV.rocks[i%ENV.rocks.length];
+    const s=openSpot(50,w.w-50,130,w.h-80,60);
+    w.deco.push({x:s.x,y:s.y,img:img});
+    w.obs.push({x:s.x,y:s.y+6,r:img.width*0.4});
+  }
+  for(let i=0;i<nFl;i++)w.flowers.push({x:rand(18,w.w-18),y:rand(80,w.h-30),img:ENV.flower[i%ENV.flower.length]});
 }
 function buildBoss(){
   S.lives=3;updateLives();
-  world={t:0,done:false,player:{x:W/2,y:H*0.75,r:22,hp:100,face:1,anim:0},
+  world={t:0,done:false,w:W,h:H,player:{x:W/2,y:H*0.75,r:22,hp:100,face:1,anim:0},
     boss:{x:W/2,y:H*0.3,r:52,hp:30+S.level*8,maxhp:30+S.level*8,vx:1,charging:false,chargeT:0,tx:0,ty:0,cool:2},
-    eggs:[],bushes:[],trees:[],prey:[],raptors:[],pops:[],deco:[],flowers:[]};
+    eggs:[],bushes:[],trees:[],prey:[],raptors:[],pops:[],deco:[],flowers:[],obs:[]};
   for(let i=0;i<3;i++) spawnBush();
   genDecor(world,2,7);
   $('bosshud').style.display='flex'; $('lives').style.display='block';
@@ -375,6 +396,7 @@ function bossDefeated(){
 /* ============ CHOMP CHASE MINI GAME ============ */
 let chomp=null;
 function buildChomp(){
+  cam.x=0;cam.y=0;
   chomp={t:25,player:{x:W/2,y:H/2,r:16,eaten:0},rival:{x:rand(60,W-60),y:rand(60,H-60),r:20,vx:1,vy:1},
     dots:[],reward:0,over:false};
   for(let i=0;i<14;i++) chomp.dots.push({x:rand(30,W-30),y:rand(90,H-60),r:6});
@@ -409,11 +431,27 @@ function playerControl(p,dt,speed){
   if(input.keys['ArrowUp']||input.keys['w'])my-=1;
   if(input.keys['ArrowDown']||input.keys['s'])my+=1;
   if(mx||my){const d=Math.hypot(mx,my);p.x+=mx/d*speed*dt;p.y+=my/d*speed*dt;if(mx)p.face=mx>0?1:-1;}
-  else if(input.active){moveToward(p,input.x,input.y,speed,dt);}
-  p.x=clamp(p.x,20,W-20);p.y=clamp(p.y,70,H-40);
+  else if(input.active){moveToward(p,input.x+cam.x,input.y+cam.y,speed,dt);}
+  const inWorld=(mode==='level'||mode==='boss')&&world;
+  const bw=inWorld?world.w:W, bh=inWorld?world.h:H;
+  p.x=clamp(p.x,20,bw-20);p.y=clamp(p.y,70,bh-40);
+  if(inWorld)resolveObstacles(p,0.72);
   p.anim+=dt*8;
 }
 
+function resolveObstacles(ent,scale){
+  if(!world||!world.obs)return;
+  const er=ent.r*(scale||0.72);
+  for(const o of world.obs){
+    const dx=ent.x-o.x,dy=ent.y-o.y,d=Math.hypot(dx,dy),min=o.r+er;
+    if(d<min&&d>0.001){ent.x=o.x+dx/d*min;ent.y=o.y+dy/d*min;}
+  }
+}
+function updateCam(){
+  if(!world)return;
+  cam.x=clamp(world.player.x-W/2,0,Math.max(0,world.w-W));
+  cam.y=clamp(world.player.y-H/2,0,Math.max(0,world.h-H));
+}
 function tickWorld(dt){
   if(!world||world.done)return;
   world.t+=dt;
@@ -439,7 +477,7 @@ function tickWorld(dt){
     }}
   // trees: brachio eats leaves
   for(const t of world.trees){
-    if(S.dino==='brachio'&&t.leaves&&dist(p,t)<p.r+t.r){
+    if(S.dino==='brachio'&&t.leaves&&Math.hypot(p.x-t.x,p.y-(t.y+26))<p.r+46){
       t.leaves=false; p.hp=clamp(p.hp+20,0,100); addPoints(2);
       world.pops.push({x:t.x,y:t.y-30,txt:'+2🪙 +HP',t:0,color:'#8ee06a'});
       setTimeout(()=>{t.leaves=true;},8000);
@@ -447,7 +485,8 @@ function tickWorld(dt){
   // prey wanders; carnivore eats
   for(let i=world.prey.length-1;i>=0;i--){const pr=world.prey[i];
     const pv=40*dmult('prey');pr.x+=pr.vx*pv*dt;pr.y+=pr.vy*pv*dt;
-    if(pr.x<20||pr.x>W-20)pr.vx*=-1; if(pr.y<80||pr.y>H-40)pr.vy*=-1;
+    if(pr.x<20||pr.x>world.w-20)pr.vx*=-1; if(pr.y<80||pr.y>world.h-40)pr.vy*=-1;
+    resolveObstacles(pr,0.8);
     if(dist(p,pr)<120&&diet==='meat'){ // flee
       const dx=pr.x-p.x,dy=pr.y-p.y,d=Math.hypot(dx,dy)||1,fv=60*dmult('prey');pr.x+=dx/d*fv*dt;pr.y+=dy/d*fv*dt;}
     if(diet==='meat'&&dist(p,pr)<p.r+pr.r){world.prey.splice(i,1);
@@ -458,7 +497,7 @@ function tickWorld(dt){
     }}
   // raptors chase
   for(const r of world.raptors){
-    moveToward(r,p.x,p.y,r.speed,dt); r.cool-=dt;
+    moveToward(r,p.x,p.y,r.speed,dt); resolveObstacles(r,0.6); r.cool-=dt;
     if(dist(p,r)<p.r+r.r&&r.cool<=0){
       r.cool=1.1;
       const dmg=Math.max(4,14-playerArmor()*3);
@@ -507,6 +546,7 @@ function tickWorld(dt){
   if(mode==='level'&&!world.done&&world.q.type!=='boss'&&world.progress>=world.q.need){
     world.done=true; levelClear();
   }
+  updateCam();
   // popups
   for(let i=world.pops.length-1;i>=0;i--){const o=world.pops[i];o.t+=dt;o.y-=30*dt;if(o.t>1)world.pops.splice(i,1);}
 }
@@ -541,7 +581,7 @@ function questHUD(){
   $('quest').textContent=q.text.replace(/^(Collect|Catch|Eat|Survive)/,m=>m)+`  (${Math.min(world.progress,q.need)}/${q.need})`;
 }
 function startLevel(){
-  hideAllOverlays();show('hud');show('hpwrap');$('btnPause').style.display='block';
+  hideAllOverlays();show('hud');show('hpwrap');$('btnPause').style.display='block';updateCam();
   $('hudLevel').textContent='Level '+S.level;
   const q=questFor(S.level);
   if(q.type==='boss'){mode='boss';buildBoss();}
@@ -1090,17 +1130,40 @@ function drawTree(t){
 function drawGround(){
   ctx.fillStyle=ENV.pattern||'#79c14e';ctx.fillRect(0,0,W,H);
 }
+function drawMinimap(){
+  if(mode!=='level'||!world)return;
+  let mw,mh;
+  if(world.w>=world.h){mw=120;mh=Math.round(120*world.h/world.w);}
+  else{mh=120;mw=Math.round(120*world.w/world.h);}
+  const mx=W-mw-10,my=64;
+  ctx.fillStyle='rgba(15,35,12,.6)';ctx.fillRect(mx,my,mw,mh);
+  ctx.strokeStyle='rgba(255,247,224,.85)';ctx.lineWidth=2;ctx.strokeRect(mx,my,mw,mh);
+  const sx=mw/world.w,sy=mh/world.h;
+  function dot(x,y,c,r){ctx.fillStyle=c;ctx.beginPath();ctx.arc(mx+x*sx,my+y*sy,r,0,Math.PI*2);ctx.fill();}
+  for(const e of world.eggs)dot(e.x,e.y,'#fff7e0',2.2);
+  for(const b of world.bushes)dot(b.x,b.y,'#6fdc55',2.2);
+  for(const pr of world.prey)dot(pr.x,pr.y,'#d3ab85',2.2);
+  for(const r of world.raptors)dot(r.x,r.y,'#ff5b4d',2.8);
+  dot(world.player.x,world.player.y,'#ffd34d',3.6);
+  ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1;
+  ctx.strokeRect(mx+cam.x*sx,my+cam.y*sy,W*sx,H*sy);
+}
 function draw(){
-  ctx.clearRect(0,0,W,H);drawGround();
-  if((mode==='level'||mode==='boss')&&world){
-    for(const f of world.flowers)ctx.drawImage(f.img,f.x-13,f.y-13);
-    for(const e of world.eggs)drawEggEnv(e);
+  ctx.clearRect(0,0,W,H);
+  const inW=(mode==='level'||mode==='boss')&&world;
+  if(!inW)drawGround();
+  if(inW){
+    ctx.save();ctx.translate(-cam.x,-cam.y);
+    ctx.fillStyle=ENV.pattern||'#79c14e';ctx.fillRect(0,0,world.w,world.h);
+    const vis=function(x,y,m){return x>cam.x-m&&x<cam.x+W+m&&y>cam.y-m&&y<cam.y+H+m;};
+    for(const f of world.flowers)if(vis(f.x,f.y,40))ctx.drawImage(f.img,f.x-13,f.y-13);
+    for(const e of world.eggs)if(vis(e.x,e.y,60))drawEggEnv(e);
     const dq=[];
-    for(const t of world.trees)dq.push({y:t.y+46,f:function(){drawTreeEnv(t);}});
-    for(const d of world.deco)dq.push({y:d.y+d.img.height*0.36,f:function(){drawDecoEnv(d);}});
-    for(const b of world.bushes)dq.push({y:b.y+22,f:function(){drawBushEnv(b);}});
-    for(const pr of world.prey)dq.push({y:pr.y+pr.r,f:function(){drawPreyEnv(pr);}});
-    for(const r of world.raptors)dq.push({y:r.y+r.r,f:function(){drawDino(r.x,r.y,r.r,(world.player.x>r.x?1:-1),'raptor',world.t*8,null);}});
+    for(const t of world.trees)if(vis(t.x,t.y,240))dq.push({y:t.y+46,f:function(){drawTreeEnv(t);}});
+    for(const d of world.deco)if(vis(d.x,d.y,120))dq.push({y:d.y+d.img.height*0.36,f:function(){drawDecoEnv(d);}});
+    for(const b of world.bushes)if(vis(b.x,b.y,90))dq.push({y:b.y+22,f:function(){drawBushEnv(b);}});
+    for(const pr of world.prey)if(vis(pr.x,pr.y,60))dq.push({y:pr.y+pr.r,f:function(){drawPreyEnv(pr);}});
+    for(const r of world.raptors)if(vis(r.x,r.y,80))dq.push({y:r.y+r.r,f:function(){drawDino(r.x,r.y,r.r,(world.player.x>r.x?1:-1),'raptor',world.t*8,null);}});
     if(mode==='boss'){const bb=world.boss;
       dq.push({y:bb.y+bb.r,f:function(){drawDino(bb.x,bb.y,bb.r,(world.player.x>bb.x?1:-1),'boss',world.t*5,'crown',{rage:bb.charging});}});}
     const p=world.player;
@@ -1109,6 +1172,8 @@ function draw(){
     for(const o of dq)o.f();
     ctx.font='700 15px Fredoka,sans-serif';ctx.textAlign='center';
     for(const o of world.pops){ctx.globalAlpha=1-o.t;ctx.fillStyle=o.color;ctx.fillText(o.txt,o.x,o.y);ctx.globalAlpha=1;}
+    ctx.restore();
+    drawMinimap();
   }
   if(mode==='chomp'&&chomp){
     ctx.fillStyle='rgba(20,40,60,.25)';ctx.fillRect(0,0,W,H);
