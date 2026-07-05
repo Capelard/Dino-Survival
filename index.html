@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v1.7</title>
+<title>Dino Survival v1.8</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -115,7 +115,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v1.7</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v1.8</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -351,8 +351,9 @@ function spawnEgg(){const s=openSpot(40,world.w-40,90,world.h-70,26);world.eggs.
 function spawnPrey(){const s=openSpot(40,world.w-40,90,world.h-70,26);world.prey.push({x:s.x,y:s.y,r:11,vx:rand(-1,1),vy:rand(-1,1)});}
 function spawnRaptor(){
   const p=world.player,a=rand(0,Math.PI*2),d=Math.max(W,H)*0.75;
+  world.packSeq=(world.packSeq||0)+1;
   world.raptors.push({x:clamp(p.x+Math.cos(a)*d,10,world.w-10),y:clamp(p.y+Math.sin(a)*d,10,world.h-10),
-    r:18,hp:3,speed:(70+S.level*6)*dmult('enemy'),cool:0});
+    r:18,hp:3,speed:(70+S.level*6)*dmult('enemy'),cool:0,packA:world.packSeq*2.399});
 }
 
 /* ============ BOSS ============ */
@@ -495,9 +496,21 @@ function tickWorld(dt){
       if(mode==='level'&&world.q.type==='food'){world.progress++;questHUD();}
       setTimeout(()=>{if(world)spawnPrey();},2500);
     }}
-  // raptors chase
+  // raptors hunt as a pack: circle to surround, then converge for the bite
   for(const r of world.raptors){
-    moveToward(r,p.x,p.y,r.speed,dt); resolveObstacles(r,0.6); r.cool-=dt;
+    if(r.packA===undefined)r.packA=rand(0,Math.PI*2);
+    const dP=dist(r,p);
+    let tx=p.x,ty=p.y;
+    if(dP>115){
+      const slot=r.packA+world.t*0.35*dmult('enemy');
+      tx=p.x+Math.cos(slot)*92; ty=p.y+Math.sin(slot)*92;
+    }
+    moveToward(r,tx,ty,r.speed,dt);
+    for(const o2 of world.raptors){ if(o2===r)continue;
+      const sdx=r.x-o2.x,sdy=r.y-o2.y,sd=Math.hypot(sdx,sdy);
+      if(sd>0.001&&sd<46){r.x+=sdx/sd*34*dt;r.y+=sdy/sd*34*dt;}
+    }
+    resolveObstacles(r,0.6); r.cool-=dt;
     if(dist(p,r)<p.r+r.r&&r.cool<=0){
       r.cool=1.1;
       const dmg=Math.max(4,14-playerArmor()*3);
@@ -1130,6 +1143,34 @@ function drawTree(t){
 function drawGround(){
   ctx.fillStyle=ENV.pattern||'#79c14e';ctx.fillRect(0,0,W,H);
 }
+function questTarget(){
+  if(mode!=='level'||!world||world.done)return null;
+  const q=world.q;
+  let list=null;
+  if(q.type==='eggs')list=world.eggs;
+  else if(q.type==='food')list=(DINOS[S.dino].diet==='meat')?world.prey:world.bushes;
+  else return null;
+  if(!list||!list.length)return null;
+  const p=world.player;
+  let best=null,bd=1e9;
+  for(const it of list){const d=dist(p,it);if(d<bd){bd=d;best=it;}}
+  return best?{t:best,d:bd}:null;
+}
+function drawCompass(){
+  if(S.diff==='advanced')return;
+  const qt=questTarget();
+  if(!qt||qt.d<180)return;
+  const p=world.player;
+  const a=Math.atan2(qt.t.y-p.y,qt.t.x-p.x);
+  const pulse=1+0.14*Math.sin(world.t*5);
+  ctx.save();
+  ctx.translate(p.x+Math.cos(a)*58,p.y+Math.sin(a)*58);
+  ctx.rotate(a);ctx.scale(pulse,pulse);
+  ctx.fillStyle='#ffd34d';ctx.strokeStyle='#7a4f21';ctx.lineWidth=3;ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(15,0);ctx.lineTo(-9,-10);ctx.lineTo(-4,0);ctx.lineTo(-9,10);ctx.closePath();
+  ctx.fill();ctx.stroke();
+  ctx.restore();
+}
 function drawMinimap(){
   if(mode!=='level'||!world)return;
   let mw,mh;
@@ -1172,6 +1213,7 @@ function draw(){
     for(const o of dq)o.f();
     ctx.font='700 15px Fredoka,sans-serif';ctx.textAlign='center';
     for(const o of world.pops){ctx.globalAlpha=1-o.t;ctx.fillStyle=o.color;ctx.fillText(o.txt,o.x,o.y);ctx.globalAlpha=1;}
+    drawCompass();
     ctx.restore();
     drawMinimap();
   }
