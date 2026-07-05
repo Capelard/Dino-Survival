@@ -13,3 +13,6 @@
 ## Notes
 - Saves are per device (browser localStorage). Each kid's tablet keeps its own progress.
 - To ship an update: change the file, push to GitHub, Railway redeploys automatically. Bump the cache name in sw.js (dino-survival-v14) so devices pull the new version.
+
+## Deploy pipeline
+Automated: Claude pushes updates to this repo, Railway redeploys automatically. Verified 2026-07-04.
