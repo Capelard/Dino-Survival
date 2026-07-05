@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v2.5</title>
+<title>Dino Survival v2.6</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -127,7 +127,7 @@
   <div id="mapScroll"><div id="mapPath">
     <canvas id="mapBg"></canvas>
     <svg id="mapSvg" preserveAspectRatio="none"></svg>
-    <div id="mapMarker"><img id="mapMarkerImg" src="" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><span class="mfall">🦖</span></div>
+    <div id="mapMarker"><img id="mapMarkerImg" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><span class="mfall" id="mapMarkerFall">🦖</span></div>
   </div></div>
   <div id="mapFoot"><button id="btnMapPlay" class="btn green">▶ Play</button></div>
 </div>
@@ -145,7 +145,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v2.5</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v2.6</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -1351,58 +1351,66 @@ function paintMapBg(Wpx,totalH,maxL,rowH,pad){
   const g=bg.getContext('2d');
   if(ENV.grassCvs){g.fillStyle=g.createPattern(ENV.grassCvs,'repeat');}
   else{g.fillStyle='#7cc351';}
-  g.fillRect(0,0,totalH>0?Wpx:0,totalH);
-  const bandOf=i=>Math.floor((i-1)/5)%4; // 0 plains 1 forest 2 hills 3 snow
+  g.fillRect(0,0,Wpx,totalH);
+  const bandOf=i=>Math.floor((i-1)/5)%4;
   const tints=[null,'rgba(15,75,15,.10)','rgba(120,88,48,.16)','rgba(232,242,255,.34)'];
-  // band tints
   for(let i=1;i<=maxL;i+=5){
     const b=bandOf(i);
     const yBot=totalH-pad-(i-1)*rowH+rowH*0.5;
-    const yTop=totalH-pad-Math.min(i+4,maxL-0)*rowH+rowH*0.5-(rowH*0);
     const top=totalH-pad-(i+4)*rowH+rowH*0.5;
     if(tints[b]){g.fillStyle=tints[b];g.fillRect(0,Math.max(0,top),Wpx,yBot-Math.max(0,top));}
   }
-  // scatter decorations, avoiding nodes
-  function farFromNodes(x,y){
-    for(const k in mapNodes){const n=mapNodes[k];
-      if(Math.hypot(x-n.x,y-n.y)<86)return false;}
-    return true;
-  }
   const rnd=mapSrand(1337+maxL);
-  function snowRock(img,x,y,s){
-    g.drawImage(img,x,y,img.width*s,img.height*s);
-    g.fillStyle='rgba(255,255,255,.9)';
-    g.beginPath();g.ellipse(x+img.width*s*0.5,y+img.height*s*0.28,img.width*s*0.34,img.height*s*0.2,0,0,Math.PI*2);g.fill();
+  const placed=[];
+  function place(ny,w,h){
+    for(let t=0;t<14;t++){
+      const cx=14+w/2+rnd()*(Wpx-28-w);
+      const cy=ny-rowH*0.5+rnd()*rowH;
+      let ok=true;
+      for(const k in mapNodes){const n=mapNodes[k];
+        if(Math.hypot(cx-n.x,cy-n.y)<58+Math.max(w,h)*0.55){ok=false;break;}}
+      if(ok)for(const p of placed){
+        if(Math.hypot(cx-p.x,cy-p.y)<(Math.max(w,h)+Math.max(p.w,p.h))*0.46){ok=false;break;}}
+      if(ok){placed.push({x:cx,y:cy,w:w,h:h});return{x:cx-w/2,y:cy-h/2,cx:cx,cy:cy};}
+    }
+    return null;
   }
-  function cloud(x,y,s){
-    g.fillStyle='rgba(255,255,255,.85)';
-    g.beginPath();g.arc(x,y,16*s,0,Math.PI*2);g.arc(x+18*s,y-6*s,13*s,0,Math.PI*2);g.arc(x+34*s,y,12*s,0,Math.PI*2);g.fill();
+  function snowRock(img,s){
+    const w=img.width*s,h=img.height*s;
+    return function(p){g.drawImage(img,p.x,p.y,w,h);
+      g.fillStyle='rgba(255,255,255,.9)';
+      g.beginPath();g.ellipse(p.x+w*0.5,p.y+h*0.28,w*0.34,h*0.2,0,0,Math.PI*2);g.fill();};
   }
   for(let i=1;i<=maxL;i++){
     const b=bandOf(i);
     const ny=totalH-pad-(i-1)*rowH;
     const count=3+Math.floor(rnd()*3);
     for(let k=0;k<count;k++){
-      let x=20+rnd()*(Wpx-60),y=ny-rowH*0.5+rnd()*rowH;
-      if(!farFromNodes(x,y))continue;
       const s=0.42+rnd()*0.3, r2=rnd();
-      if(b===0){ // plains
-        if(r2<0.45)g.drawImage(ENV.flower[Math.floor(rnd()*3)],x,y);
-        else if(r2<0.7)g.drawImage(ENV.bush,x,y,92*s,72*s);
-        else g.drawImage(ENV.trees[Math.floor(rnd()*2)],x,y,170*s,185*s);
-      }else if(b===1){ // forest
-        if(r2<0.62)g.drawImage(ENV.trees[Math.floor(rnd()*2)],x,y,170*(s+0.15),185*(s+0.15));
-        else if(r2<0.82)g.drawImage(ENV.bush,x,y,92*s,72*s);
-        else g.drawImage(ENV.flower[Math.floor(rnd()*3)],x,y);
-      }else if(b===2){ // rocky hills
-        if(r2<0.5)g.drawImage(ENV.rocks[Math.floor(rnd()*2)],x,y);
-        else if(r2<0.78)g.drawImage(ENV.trees[2],x,y,170*s,185*s);
-        else g.drawImage(ENV.bush,x,y,92*s,72*s);
-      }else{ // snow country
-        if(r2<0.45)snowRock(ENV.rocks[Math.floor(rnd()*2)],x,y,0.8+rnd()*0.4);
-        else if(r2<0.75)g.drawImage(ENV.bare,x,y,170*s,185*s);
-        else cloud(x,y,0.8+rnd()*0.6);
+      let w,h,draw;
+      if(b===0){
+        if(r2<0.45){w=h=26;const f=ENV.flower[Math.floor(rnd()*3)];draw=p=>g.drawImage(f,p.x,p.y);}
+        else if(r2<0.7){w=92*s;h=72*s;draw=p=>g.drawImage(ENV.bush,p.x,p.y,w,h);}
+        else{w=170*s;h=185*s;const t=ENV.trees[Math.floor(rnd()*2)];draw=p=>g.drawImage(t,p.x,p.y,w,h);}
+      }else if(b===1){
+        if(r2<0.62){const s2=s+0.15;w=170*s2;h=185*s2;const t=ENV.trees[Math.floor(rnd()*2)];draw=p=>g.drawImage(t,p.x,p.y,w,h);}
+        else if(r2<0.82){w=92*s;h=72*s;draw=p=>g.drawImage(ENV.bush,p.x,p.y,w,h);}
+        else{w=h=26;const f=ENV.flower[Math.floor(rnd()*3)];draw=p=>g.drawImage(f,p.x,p.y);}
+      }else if(b===2){
+        if(r2<0.5){const rk=ENV.rocks[Math.floor(rnd()*2)];w=rk.width;h=rk.height;draw=p=>g.drawImage(rk,p.x,p.y);}
+        else if(r2<0.78){w=170*s;h=185*s;draw=p=>g.drawImage(ENV.trees[2],p.x,p.y,w,h);}
+        else{w=92*s;h=72*s;draw=p=>g.drawImage(ENV.bush,p.x,p.y,w,h);}
+      }else{
+        if(r2<0.45){const rk=ENV.rocks[Math.floor(rnd()*2)],s3=0.8+rnd()*0.4;w=rk.width*s3;h=rk.height*s3;draw=snowRock(rk,s3);}
+        else if(r2<0.75){w=170*s;h=185*s;draw=p=>g.drawImage(ENV.bare,p.x,p.y,w,h);}
+        else{const s3=0.8+rnd()*0.6;w=70*s3;h=40*s3;draw=p=>{
+          g.fillStyle='rgba(255,255,255,.85)';
+          g.beginPath();g.arc(p.cx-14*s3,p.cy,16*s3,0,Math.PI*2);
+          g.arc(p.cx+4*s3,p.cy-6*s3,13*s3,0,Math.PI*2);
+          g.arc(p.cx+20*s3,p.cy,12*s3,0,Math.PI*2);g.fill();};}
       }
+      const p=place(ny,w,h);
+      if(p)draw(p);
     }
   }
 }
@@ -1473,7 +1481,7 @@ function showMap(hop){
   $('mapPts').textContent='🪙 '+S.points;
   const sp=(S.dino==='brachio')?'bronto':S.dino;
   const img=$('mapMarkerImg');
-  img.style.display='';img.src='sprites/'+sp+'_0.png';
+  img.style.display='';$('mapMarkerFall').style.display='none';img.src='sprites/'+sp+'_0.png';
   const q=questFor(S.level);
   $('btnMapPlay').textContent=(q.type==='boss'?'👹 Boss Level '+S.level:'▶ Play Level '+S.level);
   show('scrMap');
