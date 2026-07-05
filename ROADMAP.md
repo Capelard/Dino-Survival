@@ -2,15 +2,16 @@
 
 Ideas parked for future versions. Not commitments, just captured.
 
-## Level Variety
-- **Maze levels**: some levels generate as a hedge/rock maze. Find the quest items
-  through the corridors. Minimap becomes a fog-of-war reveal. Raptors patrol lanes.
-- **Runner levels**: side-scroller like the Chrome offline dino game / Mario.
-  Auto-run, tap to jump over rocks and cacti, duck under branches. Distance = points.
-  Could slot in as every 7th level or as a mini game option.
+## Shipped in v3.0
+- **Maze levels** (levels 3, 7, 11, 19, 23...): hedge maze, fog-of-war minimap,
+  raptors patrol corridors. Compass stays on for beginner only.
+- **Dino Run** mini game: Chrome-dino style auto-runner. Jump rocks/cactus,
+  duck branches, 3 hearts, distance = points. In the mini game rotation.
+- **Marble Race** mini game: bet 2 points on a dino marble dropping through
+  a peg field. 1st = +10, 2nd = +4. In the mini game rotation.
+  NOTE: built from Claude's interpretation, confirm against the boys' original design.
 
-## Backlog from original design session
-- Marble race mini game (designed by the boys, never built)
+## Backlog
 - Mini games differentiated further by difficulty tier
 
 ## Tuning watch list (from v1.7/v1.8 playtests)
