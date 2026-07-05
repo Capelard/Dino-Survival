@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v2.4</title>
+<title>Dino Survival v2.5</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -92,6 +92,7 @@
   #mapHead button{border:4px solid var(--bark);background:var(--cream);border-radius:14px;font-size:18px;padding:4px 10px;font-family:inherit}
   #mapScroll{flex:1;width:100%;overflow-y:auto;position:relative;-webkit-overflow-scrolling:touch}
   #mapPath{position:relative;width:100%}
+  #mapBg{position:absolute;left:0;top:0}
   #mapSvg{position:absolute;left:0;top:0;width:100%;height:100%}
   .mapNode{position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;border:4px solid var(--bark);
     display:flex;align-items:center;justify-content:center;font-weight:700;font-family:inherit;font-size:19px;color:#fff;
@@ -124,6 +125,7 @@
 <div id="scrMap" class="overlay hidden">
   <div id="mapHead">🗺 Level Map<span class="sp"></span><span id="mapPts"></span><button id="btnMapMenu">🏠</button></div>
   <div id="mapScroll"><div id="mapPath">
+    <canvas id="mapBg"></canvas>
     <svg id="mapSvg" preserveAspectRatio="none"></svg>
     <div id="mapMarker"><img id="mapMarkerImg" src="" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><span class="mfall">🦖</span></div>
   </div></div>
@@ -143,7 +145,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v2.4</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v2.5</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -858,7 +860,7 @@ function buildEnv(){
     x.beginPath();x.moveTo(tx,ty);x.lineTo(tx-3,ty-6);
     x.moveTo(tx,ty);x.lineTo(tx+1,ty-7);
     x.moveTo(tx,ty);x.lineTo(tx+4,ty-5);x.stroke();}
-  ENV.pattern=ctx.createPattern(g,'repeat');
+  ENV.pattern=ctx.createPattern(g,'repeat');ENV.grassCvs=g;
   ENV.trees=[makeTreeCvs('#4f9c3e','#6dbd52','#38771f'),
              makeTreeCvs('#68b14b','#8ed06a','#4b8e37'),
              makeTreeCvs('#e0b23f','#f0cf6d','#b3862a')];
@@ -1343,6 +1345,67 @@ function draw(){
 
 /* ============ LEVEL MAP ============ */
 let mapNodes={};
+function mapSrand(seed){return function(){seed=(seed*1103515245+12345)%2147483648;return seed/2147483648;};}
+function paintMapBg(Wpx,totalH,maxL,rowH,pad){
+  const bg=$('mapBg');bg.width=Wpx;bg.height=totalH;
+  const g=bg.getContext('2d');
+  if(ENV.grassCvs){g.fillStyle=g.createPattern(ENV.grassCvs,'repeat');}
+  else{g.fillStyle='#7cc351';}
+  g.fillRect(0,0,totalH>0?Wpx:0,totalH);
+  const bandOf=i=>Math.floor((i-1)/5)%4; // 0 plains 1 forest 2 hills 3 snow
+  const tints=[null,'rgba(15,75,15,.10)','rgba(120,88,48,.16)','rgba(232,242,255,.34)'];
+  // band tints
+  for(let i=1;i<=maxL;i+=5){
+    const b=bandOf(i);
+    const yBot=totalH-pad-(i-1)*rowH+rowH*0.5;
+    const yTop=totalH-pad-Math.min(i+4,maxL-0)*rowH+rowH*0.5-(rowH*0);
+    const top=totalH-pad-(i+4)*rowH+rowH*0.5;
+    if(tints[b]){g.fillStyle=tints[b];g.fillRect(0,Math.max(0,top),Wpx,yBot-Math.max(0,top));}
+  }
+  // scatter decorations, avoiding nodes
+  function farFromNodes(x,y){
+    for(const k in mapNodes){const n=mapNodes[k];
+      if(Math.hypot(x-n.x,y-n.y)<86)return false;}
+    return true;
+  }
+  const rnd=mapSrand(1337+maxL);
+  function snowRock(img,x,y,s){
+    g.drawImage(img,x,y,img.width*s,img.height*s);
+    g.fillStyle='rgba(255,255,255,.9)';
+    g.beginPath();g.ellipse(x+img.width*s*0.5,y+img.height*s*0.28,img.width*s*0.34,img.height*s*0.2,0,0,Math.PI*2);g.fill();
+  }
+  function cloud(x,y,s){
+    g.fillStyle='rgba(255,255,255,.85)';
+    g.beginPath();g.arc(x,y,16*s,0,Math.PI*2);g.arc(x+18*s,y-6*s,13*s,0,Math.PI*2);g.arc(x+34*s,y,12*s,0,Math.PI*2);g.fill();
+  }
+  for(let i=1;i<=maxL;i++){
+    const b=bandOf(i);
+    const ny=totalH-pad-(i-1)*rowH;
+    const count=3+Math.floor(rnd()*3);
+    for(let k=0;k<count;k++){
+      let x=20+rnd()*(Wpx-60),y=ny-rowH*0.5+rnd()*rowH;
+      if(!farFromNodes(x,y))continue;
+      const s=0.42+rnd()*0.3, r2=rnd();
+      if(b===0){ // plains
+        if(r2<0.45)g.drawImage(ENV.flower[Math.floor(rnd()*3)],x,y);
+        else if(r2<0.7)g.drawImage(ENV.bush,x,y,92*s,72*s);
+        else g.drawImage(ENV.trees[Math.floor(rnd()*2)],x,y,170*s,185*s);
+      }else if(b===1){ // forest
+        if(r2<0.62)g.drawImage(ENV.trees[Math.floor(rnd()*2)],x,y,170*(s+0.15),185*(s+0.15));
+        else if(r2<0.82)g.drawImage(ENV.bush,x,y,92*s,72*s);
+        else g.drawImage(ENV.flower[Math.floor(rnd()*3)],x,y);
+      }else if(b===2){ // rocky hills
+        if(r2<0.5)g.drawImage(ENV.rocks[Math.floor(rnd()*2)],x,y);
+        else if(r2<0.78)g.drawImage(ENV.trees[2],x,y,170*s,185*s);
+        else g.drawImage(ENV.bush,x,y,92*s,72*s);
+      }else{ // snow country
+        if(r2<0.45)snowRock(ENV.rocks[Math.floor(rnd()*2)],x,y,0.8+rnd()*0.4);
+        else if(r2<0.75)g.drawImage(ENV.bare,x,y,170*s,185*s);
+        else cloud(x,y,0.8+rnd()*0.6);
+      }
+    }
+  }
+}
 function buildMap(){
   const path=$('mapPath'),svg=$('mapSvg');
   path.querySelectorAll('.mapNode').forEach(function(n){n.remove();});
@@ -1356,6 +1419,7 @@ function buildMap(){
     mapNodes[i]={x:Wpx/2+Math.sin(i*0.85)*Math.min(Wpx*0.30,150),
                  y:totalH-pad-(i-1)*rowH};
   }
+  paintMapBg(Wpx,totalH,maxL,rowH,pad);
   let d='',prev=null;
   for(let i=1;i<=maxL;i++){const n=mapNodes[i];
     if(prev){
