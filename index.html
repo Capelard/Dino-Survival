@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v1.5</title>
+<title>Dino Survival v1.6</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -83,6 +83,9 @@
   #toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:var(--gold);color:var(--bark);
     border:4px solid var(--bark);border-radius:16px;padding:10px 18px;font-weight:700;z-index:40;display:none;
     box-shadow:0 5px 0 rgba(0,0,0,.25);font-size:16px;text-align:center;max-width:88vw}
+  #btnPause{position:fixed;bottom:16px;right:14px;z-index:12;width:54px;height:54px;border-radius:50%;
+    border:4px solid var(--bark);background:var(--cream);color:var(--bark);font-size:20px;font-weight:700;
+    box-shadow:0 4px 0 rgba(0,0,0,.25);display:none;font-family:inherit}
   .hidden{display:none !important}
   .bigemo{font-size:64px;margin:6px 0}
 </style>
@@ -99,11 +102,20 @@
 <div id="bosshud"><div id="bossbar"><div id="bossfill"></div></div></div>
 <div id="hpwrap" class="hidden"><div id="hpbar"><div id="hpfill"></div></div></div>
 <div id="toast"></div>
+<button id="btnPause">⏸</button>
+<div id="scrPause" class="overlay hidden">
+  <div class="panel">
+    <h2>⏸ Paused</h2>
+    <button id="btnResume" class="btn green">▶ Resume</button><br>
+    <button id="btnRestart" class="btn gold">↻ Restart Level</button><br>
+    <button id="btnMainMenu" class="btn gray">🏠 Main Menu</button>
+  </div>
+</div>
 
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v1.5</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v1.6</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -305,10 +317,12 @@ function buildLevel(){
   const q=questFor(S.level);
   world={q, t:0, progress:0, done:false,
     player:{x:W/2,y:H/2,r:22,hp:100,face:1,anim:0},
-    eggs:[],bushes:[],trees:[],prey:[],raptors:[],pops:[]};
+    eggs:[],bushes:[],trees:[],prey:[],raptors:[],pops:[],deco:[],flowers:[]};
   // sparse trees so you can still see
   const nTrees=3+Math.min(3,Math.floor(S.level/3));
-  for(let i=0;i<nTrees;i++) world.trees.push({x:rand(60,W-60),y:rand(90,H-90),r:26,leaves:true});
+  for(let i=0;i<nTrees;i++) world.trees.push({x:rand(70,W-70),y:rand(150,H-80),r:26,leaves:true,
+    v:(Math.random()<0.15?2:Math.floor(rand(0,2)))});
+  genDecor(world,2+Math.floor(rand(0,2)),9);
   for(let i=0;i<6;i++) spawnBush();
   for(let i=0;i<(q.type==='eggs'?q.need:4);i++) spawnEgg();
   const nPrey = DINOS[S.dino].diet==='meat' ? Math.max(4,(q.type==='food'?q.need+2:4)) : 2;
@@ -326,12 +340,17 @@ function spawnRaptor(){
 }
 
 /* ============ BOSS ============ */
+function genDecor(w,nRocks,nFl){
+  for(let i=0;i<nRocks;i++)w.deco.push({x:rand(50,W-50),y:rand(130,H-80),img:ENV.rocks[i%ENV.rocks.length]});
+  for(let i=0;i<nFl;i++)w.flowers.push({x:rand(18,W-18),y:rand(80,H-30),img:ENV.flower[i%ENV.flower.length]});
+}
 function buildBoss(){
   S.lives=3;updateLives();
   world={t:0,done:false,player:{x:W/2,y:H*0.75,r:22,hp:100,face:1,anim:0},
     boss:{x:W/2,y:H*0.3,r:52,hp:30+S.level*8,maxhp:30+S.level*8,vx:1,charging:false,chargeT:0,tx:0,ty:0,cool:2},
-    eggs:[],bushes:[],trees:[],prey:[],raptors:[],pops:[]};
+    eggs:[],bushes:[],trees:[],prey:[],raptors:[],pops:[],deco:[],flowers:[]};
   for(let i=0;i<3;i++) spawnBush();
+  genDecor(world,2,7);
   $('bosshud').style.display='flex'; $('lives').style.display='block';
 }
 function updateLives(){$('lives').textContent='❤️'.repeat(S.lives)+'🖤'.repeat(3-S.lives);}
@@ -370,8 +389,10 @@ function endChomp(msg){
 let last=performance.now();
 function loop(now){
   const dt=Math.min(0.05,(now-last)/1000); last=now;
-  if(mode==='level'||mode==='boss') tickWorld(dt);
-  if(mode==='chomp') tickChomp(dt);
+  if(!paused){
+    if(mode==='level'||mode==='boss') tickWorld(dt);
+    if(mode==='chomp') tickChomp(dt);
+  }
   draw();
   requestAnimationFrame(loop);
 }
@@ -520,7 +541,7 @@ function questHUD(){
   $('quest').textContent=q.text.replace(/^(Collect|Catch|Eat|Survive)/,m=>m)+`  (${Math.min(world.progress,q.need)}/${q.need})`;
 }
 function startLevel(){
-  hideAllOverlays();show('hud');show('hpwrap');
+  hideAllOverlays();show('hud');show('hpwrap');$('btnPause').style.display='block';
   $('hudLevel').textContent='Level '+S.level;
   const q=questFor(S.level);
   if(q.type==='boss'){mode='boss';buildBoss();}
@@ -652,6 +673,149 @@ $('btnSpin').onclick=()=>{
 $('btnSpinDone').onclick=openShopGate;
 
 /* ============ DRAWING ============ */
+/* ============ ENVIRONMENT ART ============ */
+const ENV={pattern:null,trees:[],bare:null,bush:null,rocks:[],flower:[]};
+function envCvs(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
+function makeTreeCvs(colBase,colLite,colDark){
+  const c=envCvs(170,185),x=c.getContext('2d');
+  const cx=85,cy=78;
+  x.fillStyle='#6b4526';x.fillRect(cx-9,cy+48,18,44);
+  x.fillStyle='#59371d';x.fillRect(cx-9,cy+48,6,44);
+  x.fillStyle='#6b4526';
+  x.beginPath();x.ellipse(cx,cy+92,22,9,0,0,Math.PI*2);x.fill();
+  const lumps=[[0,0,52],[-34,-8,34],[34,-6,34],[-20,-34,30],[22,-32,30],[0,-44,28],[-38,20,26],[38,18,26],[0,26,30]];
+  x.fillStyle=colDark;
+  for(const l of lumps){x.beginPath();x.arc(cx+l[0],cy+l[1],l[2]+4,0,Math.PI*2);x.fill();}
+  x.fillStyle=colBase;
+  for(const l of lumps){x.beginPath();x.arc(cx+l[0],cy+l[1],l[2],0,Math.PI*2);x.fill();}
+  x.fillStyle=colLite;
+  x.beginPath();x.arc(cx-16,cy-24,28,0,Math.PI*2);x.fill();
+  x.beginPath();x.arc(cx+10,cy-36,18,0,Math.PI*2);x.fill();
+  x.strokeStyle='rgba(0,50,0,0.28)';x.lineWidth=2.5;x.lineCap='round';
+  for(let i=0;i<18;i++){const a=i*2.4,rr=16+(i*13)%34;
+    const sx=cx+Math.cos(a)*rr,sy=cy-4+Math.sin(a)*rr*0.8;
+    x.beginPath();x.moveTo(sx,sy);x.quadraticCurveTo(sx+4,sy-5,sx+8,sy-1);x.stroke();}
+  return c;
+}
+function makeBareCvs(){
+  const c=envCvs(170,185),x=c.getContext('2d');
+  const cx=85,cy=78;
+  x.fillStyle='#6b4526';x.fillRect(cx-9,cy+10,18,82);
+  x.fillStyle='#59371d';x.fillRect(cx-9,cy+10,6,82);
+  x.beginPath();x.moveTo(cx-6,cy+18);x.lineTo(cx-30,cy-4);x.lineTo(cx-26,cy-10);x.lineTo(cx-2,cy+10);x.closePath();
+  x.fillStyle='#6b4526';x.fill();
+  x.beginPath();x.moveTo(cx+6,cy+26);x.lineTo(cx+30,cy+6);x.lineTo(cx+26,cy);x.lineTo(cx+2,cy+18);x.closePath();x.fill();
+  x.fillStyle='#57b544';
+  x.beginPath();x.arc(cx-30,cy-10,8,0,Math.PI*2);x.arc(cx+30,cy+2,7,0,Math.PI*2);x.fill();
+  return c;
+}
+function makeBushCvs(){
+  const c=envCvs(92,72),x=c.getContext('2d');
+  const lumps=[[46,42,25],[25,46,17],[67,46,17],[34,29,16],[58,29,16]];
+  x.fillStyle='#2c6423';
+  for(const l of lumps){x.beginPath();x.arc(l[0],l[1],l[2]+3,0,Math.PI*2);x.fill();}
+  x.fillStyle='#3f8f3a';
+  for(const l of lumps){x.beginPath();x.arc(l[0],l[1],l[2],0,Math.PI*2);x.fill();}
+  x.fillStyle='#57b544';
+  x.beginPath();x.arc(38,30,13,0,Math.PI*2);x.arc(54,27,9,0,Math.PI*2);x.fill();
+  const berries=[[30,40],[48,46],[63,36],[42,54],[58,52],[36,26]];
+  for(const b of berries){
+    x.fillStyle='#d8352b';x.beginPath();x.arc(b[0],b[1],5,0,Math.PI*2);x.fill();
+    x.fillStyle='rgba(120,20,10,.5)';x.beginPath();x.arc(b[0],b[1],5,0.6,2.2);x.stroke?0:0;x.fill();
+    x.fillStyle='rgba(255,255,255,.65)';x.beginPath();x.arc(b[0]-1.6,b[1]-1.8,1.7,0,Math.PI*2);x.fill();}
+  return c;
+}
+function makeRockCvs(w,h){
+  const c=envCvs(w,h),x=c.getContext('2d');
+  x.fillStyle='#7d8698';
+  x.beginPath();
+  x.moveTo(w*0.12,h*0.72);x.lineTo(w*0.06,h*0.45);x.lineTo(w*0.28,h*0.16);
+  x.lineTo(w*0.66,h*0.10);x.lineTo(w*0.94,h*0.40);x.lineTo(w*0.88,h*0.74);
+  x.lineTo(w*0.55,h*0.92);x.closePath();x.fill();
+  x.fillStyle='#aab4c6';
+  x.beginPath();
+  x.moveTo(w*0.14,h*0.68);x.lineTo(w*0.09,h*0.45);x.lineTo(w*0.30,h*0.20);
+  x.lineTo(w*0.64,h*0.14);x.lineTo(w*0.88,h*0.40);x.lineTo(w*0.82,h*0.68);
+  x.lineTo(w*0.54,h*0.84);x.closePath();x.fill();
+  x.fillStyle='#c9d2e0';
+  x.beginPath();x.moveTo(w*0.30,h*0.22);x.lineTo(w*0.62,h*0.16);x.lineTo(w*0.72,h*0.34);x.lineTo(w*0.38,h*0.42);x.closePath();x.fill();
+  x.strokeStyle='rgba(60,70,90,.5)';x.lineWidth=2;
+  x.beginPath();x.moveTo(w*0.45,h*0.45);x.lineTo(w*0.55,h*0.62);x.lineTo(w*0.50,h*0.78);x.stroke();
+  return c;
+}
+function makeFlowerCvs(petal){
+  const c=envCvs(26,26),x=c.getContext('2d');
+  x.fillStyle=petal;
+  for(let i=0;i<5;i++){const a=i/5*Math.PI*2;
+    x.beginPath();x.arc(13+Math.cos(a)*6,13+Math.sin(a)*6,5,0,Math.PI*2);x.fill();}
+  x.fillStyle='#ffd34d';x.beginPath();x.arc(13,13,4.5,0,Math.PI*2);x.fill();
+  x.fillStyle='rgba(0,0,0,.15)';x.beginPath();x.arc(14,14,4.5,0,Math.PI);x.fill();
+  return c;
+}
+function buildEnv(){
+  const g=envCvs(240,240),x=g.getContext('2d');
+  x.fillStyle='#7cc351';x.fillRect(0,0,240,240);
+  const patches=[[36,44,72,26,'#73b849'],[158,92,84,30,'#84cb59'],[84,176,92,28,'#73b849'],[196,186,62,22,'#6eb145'],[12,124,52,20,'#84cb59'],[210,30,56,20,'#73b849']];
+  for(const p of patches){x.fillStyle=p[4];x.beginPath();x.ellipse(p[0],p[1],p[2],p[3],0,0,Math.PI*2);x.fill();}
+  for(let i=0;i<160;i++){const rx=(i*97+13)%240,ry=(i*61+31)%240;
+    x.fillStyle=(i%2?'rgba(255,255,255,0.05)':'rgba(0,60,0,0.06)');
+    x.beginPath();x.arc(rx,ry,2+(i%3),0,Math.PI*2);x.fill();}
+  x.strokeStyle='#5da33a';x.lineWidth=2;x.lineCap='round';
+  for(let i=0;i<30;i++){const tx=(i*137+40)%240,ty=(i*83+30)%240;
+    x.beginPath();x.moveTo(tx,ty);x.lineTo(tx-3,ty-6);
+    x.moveTo(tx,ty);x.lineTo(tx+1,ty-7);
+    x.moveTo(tx,ty);x.lineTo(tx+4,ty-5);x.stroke();}
+  ENV.pattern=ctx.createPattern(g,'repeat');
+  ENV.trees=[makeTreeCvs('#4f9c3e','#6dbd52','#38771f'),
+             makeTreeCvs('#68b14b','#8ed06a','#4b8e37'),
+             makeTreeCvs('#e0b23f','#f0cf6d','#b3862a')];
+  ENV.bare=makeBareCvs();
+  ENV.bush=makeBushCvs();
+  ENV.rocks=[makeRockCvs(84,58),makeRockCvs(56,42)];
+  ENV.flower=[makeFlowerCvs('#f0f0f5'),makeFlowerCvs('#ff8ab0'),makeFlowerCvs('#6da2ff')];
+}
+buildEnv();
+function drawTreeEnv(t){
+  ctx.fillStyle='rgba(0,0,0,.13)';
+  ctx.beginPath();ctx.ellipse(t.x,t.y+46,42,12,0,0,Math.PI*2);ctx.fill();
+  ctx.drawImage(t.leaves?ENV.trees[t.v||0]:ENV.bare,t.x-85,t.y-138);
+}
+function drawBushEnv(b){
+  ctx.fillStyle='rgba(0,0,0,.12)';
+  ctx.beginPath();ctx.ellipse(b.x,b.y+22,32,9,0,0,Math.PI*2);ctx.fill();
+  ctx.drawImage(ENV.bush,b.x-46,b.y-40);
+}
+function drawDecoEnv(d){
+  ctx.fillStyle='rgba(0,0,0,.13)';
+  ctx.beginPath();ctx.ellipse(d.x,d.y+d.img.height*0.36,d.img.width*0.44,8,0,0,Math.PI*2);ctx.fill();
+  ctx.drawImage(d.img,d.x-d.img.width/2,d.y-d.img.height/2);
+}
+function drawEggEnv(e){
+  ctx.fillStyle='rgba(0,0,0,.12)';
+  ctx.beginPath();ctx.ellipse(e.x,e.y+e.r,e.r*0.85,e.r*0.3,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff7e0';
+  ctx.beginPath();ctx.ellipse(e.x,e.y,e.r*0.8,e.r,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#cbb98d';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.fillStyle='#e8d9ae';
+  ctx.beginPath();ctx.arc(e.x-3,e.y-2,1.5,0,Math.PI*2);ctx.arc(e.x+3,e.y+3,1.3,0,Math.PI*2);ctx.arc(e.x+2,e.y-5,1.1,0,Math.PI*2);ctx.fill();
+}
+function drawPreyEnv(pr){
+  ctx.fillStyle='rgba(0,0,0,.12)';
+  ctx.beginPath();ctx.ellipse(pr.x,pr.y+pr.r*0.7,pr.r,pr.r*0.32,0,0,Math.PI*2);ctx.fill();
+  const f=pr.vx>0?1:-1;
+  ctx.save();ctx.translate(pr.x,pr.y);ctx.scale(f,1);
+  ctx.strokeStyle='#8a6a4f';ctx.lineWidth=2;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-pr.r,0);ctx.quadraticCurveTo(-pr.r*1.7,-3,-pr.r*1.9,-6);ctx.stroke();
+  ctx.fillStyle='#b08968';
+  ctx.beginPath();ctx.ellipse(0,0,pr.r,pr.r*0.7,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#c9a687';
+  ctx.beginPath();ctx.ellipse(pr.r*0.1,pr.r*0.25,pr.r*0.6,pr.r*0.32,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#b08968';
+  ctx.beginPath();ctx.arc(pr.r*0.55,-pr.r*0.55,pr.r*0.32,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#222';ctx.beginPath();ctx.arc(pr.r*0.62,-pr.r*0.6,1.6,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
 function shade(hex,amt){
   const n=parseInt(hex.slice(1),16);
   const R=clamp((n>>16)+amt,0,255),G=clamp(((n>>8)&255)+amt,0,255),B=clamp((n&255)+amt,0,255);
@@ -924,29 +1088,25 @@ function drawTree(t){
     ctx.fillStyle='#57b544';ctx.beginPath();ctx.arc(t.x-10,t.y-18,t.r*0.6,0,Math.PI*2);ctx.fill();}
 }
 function drawGround(){
-  ctx.fillStyle='#79c14e';ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='rgba(93,163,58,.5)';
-  for(let i=0;i<8;i++){const gx=(i*173)%W,gy=(i*271)%H;
-    ctx.beginPath();ctx.ellipse(gx,gy,60,26,0,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle=ENV.pattern||'#79c14e';ctx.fillRect(0,0,W,H);
 }
 function draw(){
   ctx.clearRect(0,0,W,H);drawGround();
   if((mode==='level'||mode==='boss')&&world){
-    for(const t of world.trees)drawTree(t);
-    for(const b of world.bushes){ctx.fillStyle='#3f8f3a';
-      ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='#e0523d';ctx.beginPath();ctx.arc(b.x-5,b.y-4,3,0,Math.PI*2);ctx.arc(b.x+6,b.y+2,3,0,Math.PI*2);ctx.fill();}
-    for(const e of world.eggs){ctx.fillStyle='#fff7e0';
-      ctx.beginPath();ctx.ellipse(e.x,e.y,e.r*0.8,e.r,0,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle='#d9c9a0';ctx.stroke();}
-    for(const pr of world.prey){ctx.fillStyle='#b08968';
-      ctx.beginPath();ctx.ellipse(pr.x,pr.y,pr.r,pr.r*0.7,0,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='#222';ctx.beginPath();ctx.arc(pr.x+4,pr.y-2,1.6,0,Math.PI*2);ctx.fill();}
-    for(const r of world.raptors)drawDino(r.x,r.y,r.r,(world.player.x>r.x?1:-1),'raptor',world.t*8,null);
-    if(mode==='boss'){const b=world.boss;
-      drawDino(b.x,b.y,b.r,(world.player.x>b.x?1:-1),'boss',world.t*5,'crown',{rage:b.charging});}
+    for(const f of world.flowers)ctx.drawImage(f.img,f.x-13,f.y-13);
+    for(const e of world.eggs)drawEggEnv(e);
+    const dq=[];
+    for(const t of world.trees)dq.push({y:t.y+46,f:function(){drawTreeEnv(t);}});
+    for(const d of world.deco)dq.push({y:d.y+d.img.height*0.36,f:function(){drawDecoEnv(d);}});
+    for(const b of world.bushes)dq.push({y:b.y+22,f:function(){drawBushEnv(b);}});
+    for(const pr of world.prey)dq.push({y:pr.y+pr.r,f:function(){drawPreyEnv(pr);}});
+    for(const r of world.raptors)dq.push({y:r.y+r.r,f:function(){drawDino(r.x,r.y,r.r,(world.player.x>r.x?1:-1),'raptor',world.t*8,null);}});
+    if(mode==='boss'){const bb=world.boss;
+      dq.push({y:bb.y+bb.r,f:function(){drawDino(bb.x,bb.y,bb.r,(world.player.x>bb.x?1:-1),'boss',world.t*5,'crown',{rage:bb.charging});}});}
     const p=world.player;
-    drawDino(p.x,p.y,p.r,p.face,S.dino,p.anim,S.wearing);
+    dq.push({y:p.y+p.r,f:function(){drawDino(p.x,p.y,p.r,p.face,S.dino,p.anim,S.wearing);}});
+    dq.sort(function(a,b){return a.y-b.y;});
+    for(const o of dq)o.f();
     ctx.font='700 15px Fredoka,sans-serif';ctx.textAlign='center';
     for(const o of world.pops){ctx.globalAlpha=1-o.t;ctx.fillStyle=o.color;ctx.fillText(o.txt,o.x,o.y);ctx.globalAlpha=1;}
   }
@@ -960,6 +1120,28 @@ function draw(){
   }
 }
 
+/* ============ PAUSE / MAIN MENU ============ */
+let paused=false;
+function setPaused(p){paused=p;if(p)show('scrPause');else hide('scrPause');}
+function inPlay(){return mode==='level'||mode==='boss'||mode==='chomp';}
+$('btnPause').onclick=function(){if(inPlay()&&!paused)setPaused(true);};
+$('btnResume').onclick=function(){setPaused(false);};
+$('btnRestart').onclick=function(){setPaused(false);
+  if(mode==='chomp'){buildChomp();}else{startLevel();}};
+$('btnMainMenu').onclick=function(){setPaused(false);goMainMenu();};
+window.addEventListener('keydown',function(e){if(e.key==='Escape'&&inPlay())setPaused(!paused);});
+function refreshSelect(){
+  if(S.dino){
+    $('saveNote').textContent='Saved: '+DINOS[S.dino].name+', Level '+S.level+', '+S.points+' points. Continue, or pick a dino to start over.';
+    $('btnContinue').classList.remove('hidden');
+  }
+}
+function goMainMenu(){
+  mode='none';world=null;chomp=null;
+  hide('hud');hide('hpwrap');
+  $('bosshud').style.display='none';$('lives').style.display='none';$('btnPause').style.display='none';
+  saveGame();refreshSelect();hideAllOverlays();show('scrSelect');
+}
 /* ============ WIRING ============ */
 function setDiffUI(){
   document.querySelectorAll('.diffbtn').forEach(b=>{
@@ -986,7 +1168,7 @@ $('btnShopDone').onclick=()=>{ if(!maybeOfferMini()) showIntro(); };
 $('btnSkipMini').onclick=()=>{toast('Skipped! On to the next level.');openShopGate();};
 $('btnPlayMini').onclick=()=>{
   hideAllOverlays();
-  if(pendingMini.id==='chomp'){mode='chomp';buildChomp();}
+  if(pendingMini.id==='chomp'){mode='chomp';buildChomp();$('btnPause').style.display='block';}
   else if(pendingMini.id==='shapes'){startShapes();}
   else{startSpin();}
 };
