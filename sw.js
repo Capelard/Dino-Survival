@@ -1,6 +1,7 @@
-const C='dino-survival-v14';
+const C='dino-survival-v15';
+const CORE=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'])));
+  e.waitUntil(caches.open(C).then(c=>c.addAll(CORE)));
   self.skipWaiting();
 });
 self.addEventListener('activate',e=>{
@@ -8,5 +9,8 @@ self.addEventListener('activate',e=>{
   self.clients.claim();
 });
 self.addEventListener('fetch',e=>{
-  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));
+  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{
+    if(e.request.url.indexOf('/sprites/')>-1){const cl=res.clone();caches.open(C).then(c=>c.put(e.request,cl));}
+    return res;
+  })));
 });

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v1.4</title>
+<title>Dino Survival v1.5</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -43,6 +43,7 @@
     cursor:pointer;transition:transform .1s}
   .dcard:active{transform:scale(.96)}
   .dcard .emo{font-size:44px}
+  .dcard .emo img{height:56px;image-rendering:auto}
   .dcard b{display:block;color:var(--bark);font-size:16px}
   .dcard span{font-size:12px;color:#8a6a50;display:block;line-height:1.25;margin-top:3px}
   .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:8px;padding:2px 8px;margin-top:6px;color:#fff}
@@ -102,7 +103,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v1.4</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v1.5</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -110,24 +111,17 @@
       <button class="btn small gray diffbtn" data-diff="advanced">🌋 Advanced</button>
     </div>
     <div class="dinorow">
-      <div class="dcard" data-dino="rex"><div class="emo">🦖</div><b>T-Rex</b>
-        <span>Hunts prey to survive. Upgrade: <b>Teeth</b></span><span class="tag meat">MEAT EATER</span></div>
-      <div class="dcard" data-dino="anky"><div class="emo"><svg width="64" height="48" viewBox="0 0 64 48">
-        <ellipse cx="30" cy="30" rx="20" ry="12" fill="#7a6bb8"/>
-        <ellipse cx="32" cy="34" rx="13" ry="6" fill="#c5bde8"/>
-        <path d="M14 26 Q30 8 46 26" fill="none" stroke="#5a4a98" stroke-width="7" stroke-linecap="round"/>
-        <circle cx="18" cy="22" r="3.5" fill="#ffd34d"/><circle cx="26" cy="17" r="3.5" fill="#ffd34d"/>
-        <circle cx="34" cy="17" r="3.5" fill="#ffd34d"/><circle cx="42" cy="22" r="3.5" fill="#ffd34d"/>
-        <ellipse cx="51" cy="27" rx="7" ry="5.5" fill="#7a6bb8"/>
-        <circle cx="53" cy="25.5" r="1.6" fill="#fff"/><circle cx="53.6" cy="25.5" r="0.9" fill="#222"/>
-        <path d="M12 30 Q4 30 3 26" fill="none" stroke="#7a6bb8" stroke-width="5" stroke-linecap="round"/>
-        <circle cx="3" cy="25" r="4.5" fill="#5a4a98"/>
-        <rect x="20" y="38" width="6" height="8" rx="2.5" fill="#7a6bb8"/>
-        <rect x="36" y="38" width="6" height="8" rx="2.5" fill="#7a6bb8"/>
-      </svg></div><b>Ankylosaurus</b>
-        <span>Eats bushes. Tough shell. Upgrade: <b>Armor</b></span><span class="tag plant">PLANT EATER</span></div>
-      <div class="dcard" data-dino="brachio"><div class="emo">🦕</div><b>Brachiosaurus</b>
-        <span>Eats trees and bushes. Upgrade: <b>Speed</b></span><span class="tag plant">PLANT EATER</span></div>
+      <div class="dcard" data-dino="rex"><div class="emo"><img src="sprites/rex_0.png" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span style="display:none">🦖</span></div><b>T-Rex</b>
+        <span>Hunts prey. Bites raptors back. Bonus: <b>Teeth</b></span><span class="tag meat">MEAT EATER</span></div>
+      <div class="dcard" data-dino="anky"><div class="emo"><img src="sprites/anky_0.png" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span style="display:none">🛡</span></div><b>Ankylosaurus</b>
+        <span>Club tail, tough shell. Bonus: <b>Armor</b></span><span class="tag plant">PLANT EATER</span></div>
+      <div class="dcard" data-dino="brachio"><div class="emo"><img src="sprites/bronto_0.png" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span style="display:none">🦕</span></div><b>Brontosaurus</b>
+        <span>Eats trees and bushes. Bonus: <b>Speed</b></span><span class="tag plant">PLANT EATER</span></div>
+      <div class="dcard" data-dino="stego"><div class="emo"><img src="sprites/stego_0.png" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span style="display:none">🦕</span></div><b>Stegosaurus</b>
+        <span>Spiked plates. Bonus: <b>Armor</b></span><span class="tag plant">PLANT EATER</span></div>
+      <div class="dcard" data-dino="trice"><div class="emo"><img src="sprites/trice_0.png" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span style="display:none">🦕</span></div><b>Triceratops</b>
+        <span>Horn charge. Bonus: <b>Power</b></span><span class="tag plant">PLANT EATER</span></div>
+    </div>
     </div>
     <p id="saveNote" class="sub"></p>
     <button id="btnContinue" class="btn green hidden">▶ Continue Game</button>
@@ -245,7 +239,9 @@ async function loadGame(){
 const DINOS = {
   rex:{name:'T-Rex',color:'#c9553d',belly:'#e8a68c',diet:'meat',statName:'Teeth'},
   anky:{name:'Ankylosaurus',color:'#7a6bb8',belly:'#c5bde8',diet:'plant',statName:'Armor'},
-  brachio:{name:'Brachiosaurus',color:'#4d9e8a',belly:'#a8dccb',diet:'plant',statName:'Speed'}
+  brachio:{name:'Brontosaurus',color:'#4d9e8a',belly:'#a8dccb',diet:'plant',statName:'Speed'},
+  stego:{name:'Stegosaurus',color:'#5a9e4d',belly:'#b9dca8',diet:'plant',statName:'Armor'},
+  trice:{name:'Triceratops',color:'#d98a3d',belly:'#f0c9a0',diet:'plant',statName:'Power'}
 };
 const SKINS = [
   {id:'glasses',name:'Cool Sunglasses',emoji:'🕶️',cost:15},
@@ -302,8 +298,8 @@ function questFor(level){
   return {type:'survive',need:30+level*2,text:`Survive ${30+level*2} seconds ⏱️`,emo:'⏱️'};
 }
 function playerSpeed(){ return 150 + S.up.speed*18 + (S.dino==='brachio'?20:0); }
-function playerPower(){ return 1 + S.up.power + (S.dino==='rex'?1:0); }
-function playerArmor(){ return S.up.armor + (S.dino==='anky'?1:0); }
+function playerPower(){ return 1 + S.up.power + (S.dino==='rex'||S.dino==='trice'?1:0); }
+function playerArmor(){ return S.up.armor + (S.dino==='anky'||S.dino==='stego'?1:0); }
 
 function buildLevel(){
   const q=questFor(S.level);
@@ -852,13 +848,61 @@ function drawRaptorBody(r,anim,color,belly){
   dinoEye(hx+hr*0.08,hy-hr*0.1,hr*0.2,true);
   return null;
 }
+
+/* ============ SPRITE ENGINE ============ */
+const SPR={
+ rex:{frames:8,head:{x:0.30,y:0.14,r:0.16}},
+ anky:{frames:8,head:{x:0.14,y:0.30,r:0.13}},
+ bronto:{frames:8,head:{x:0.34,y:0.06,r:0.11}},
+ stego:{frames:8,head:{x:0.10,y:0.34,r:0.12}},
+ trice:{frames:8,head:{x:0.10,y:0.24,r:0.14}},
+ raptor:{frames:8,head:null},
+ boss:{frames:8,head:{x:0.30,y:0.14,r:0.16}}
+};
+const SPRIMG={},SPRREADY={};
+(function loadSprites(){
+  for(const sp in SPR){
+    SPRIMG[sp]=[];let ok=0;
+    for(let i=0;i<SPR[sp].frames;i++){
+      const im=new Image();
+      im.onload=function(){ok++;if(ok===SPR[sp].frames)SPRREADY[sp]=true;};
+      im.src='sprites/'+sp+'_'+i+'.png';
+      SPRIMG[sp].push(im);
+    }
+  }
+})();
 function drawDino(x,y,r,face,species,anim,acc,opts){
+  opts=opts||{};
+  const key=(species==='brachio')?'bronto':species;
+  if(SPRREADY[key]){
+    const imgs=SPRIMG[key];
+    const img=imgs[Math.floor(anim)%imgs.length];
+    const H=r*3.0,W=H*img.width/img.height;
+    ctx.save();ctx.translate(x,y);
+    ctx.fillStyle='rgba(0,0,0,.14)';
+    ctx.beginPath();ctx.ellipse(0,H*0.42,Math.min(W*0.5,r*1.4),r*0.3,0,0,Math.PI*2);ctx.fill();
+    if(opts.rage){
+      ctx.strokeStyle='rgba(255,60,30,'+(0.5+0.4*Math.sin(anim*3))+')';ctx.lineWidth=5;
+      ctx.beginPath();ctx.ellipse(0,H*0.05,W*0.55,H*0.5,0,0,Math.PI*2);ctx.stroke();
+    }
+    ctx.scale(-face,1);
+    try{if(opts.rage)ctx.filter='saturate(2.4) hue-rotate(-55deg)';}catch(e){}
+    ctx.drawImage(img,-W/2,-H*0.55,W,H);
+    try{ctx.filter='none';}catch(e){}
+    const hd=SPR[key].head;
+    if(acc&&hd)drawAccessory(acc,(hd.x-0.5)*W,(hd.y-0.55)*H,H*hd.r);
+    ctx.restore();
+  } else { drawDinoOld(x,y,r,face,species,anim,acc,opts); }
+}
+function drawDinoOld(x,y,r,face,species,anim,acc,opts){
   opts=opts||{};
   ctx.save();ctx.translate(x,y);
   drawShadow(r);
   ctx.scale(face,1);
   let head=null;
-  if(species==='rex'){head=drawRexBody(r,anim,'#c9553d','#e8a68c');}
+  if(species==='stego'){head=drawAnkyBody(r,anim,'#5a9e4d','#b9dca8');}
+  else if(species==='trice'){head=drawAnkyBody(r,anim,'#d98a3d','#f0c9a0');}
+  else if(species==='rex'){head=drawRexBody(r,anim,'#c9553d','#e8a68c');}
   else if(species==='anky'){head=drawAnkyBody(r,anim,'#7a6bb8','#c5bde8');}
   else if(species==='brachio'){head=drawBrachioBody(r,anim,'#4d9e8a','#a8dccb');}
   else if(species==='raptor'){drawRaptorBody(r,anim,'#c9352b','#f0a08c');}
