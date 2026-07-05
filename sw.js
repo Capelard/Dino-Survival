@@ -1,4 +1,4 @@
-const C='dino-survival-v20';
+const C='dino-survival-v21';
 const CORE=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(C).then(c=>c.addAll(CORE)));
