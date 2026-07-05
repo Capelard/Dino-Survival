@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v3.0</title>
+<title>Dino Survival v3.1</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -145,7 +145,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.0</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.1</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -474,6 +474,7 @@ function loop(now){
     if(mode==='chomp') tickChomp(dt);
     if(mode==='runner') tickRunner(dt);
     if(mode==='marble') tickMarble(dt);
+    if(mode==='tilt') tickTilt(dt);
   }
   draw();
   requestAnimationFrame(loop);
@@ -926,24 +927,31 @@ function drawRunner(){
 /* ============ MARBLE RACE MINI GAME (v3.0) ============ */
 let marble=null;
 const MARBLERS=['rex','trice','anky','stego'];
+function marbleField(){
+  const pool=['rex','trice','anky','stego','brachio'].filter(id=>id!==S.dino);
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(rand(0,i+1));const t2=pool[i];pool[i]=pool[j];pool[j]=t2;}
+  return [S.dino].concat(pool.slice(0,3));
+}
 function openMarblePick(){
   const box=$('marbleBtns');box.innerHTML='';
-  MARBLERS.forEach(id=>{
+  const field=marbleField();
+  field.forEach(id=>{
     const dn=DINOS[id],b2=document.createElement('button');
     b2.className='btn';b2.style.background=dn.color;b2.style.color='#fff';b2.style.margin='4px';
-    b2.textContent=dn.name;
+    b2.textContent=(id===S.dino?'⭐ '+dn.name+' (you!)':dn.name);
     b2.onclick=()=>{
       if(S.points<2){toast('You need 2 🪙 to race!');return;}
-      addPoints(-2);hideAllOverlays();mode='marble';buildMarble(id);$('btnPause').style.display='block';
+      addPoints(-2);hideAllOverlays();mode='marble';buildMarble(id,field);$('btnPause').style.display='block';
     };
     box.appendChild(b2);
   });
   hideAllOverlays();show('scrMarble');
 }
-function buildMarble(pick){
+function buildMarble(pick,field){
   cam.x=0;cam.y=0;
   const H2=H*2.6;
-  marble={t:0,pick,over:false,camY:0,H2,finish:H2-70,pegs:[],balls:[],order:[],confetti:[]};
+  field=field||MARBLERS;
+  marble={t:0,pick,field,over:false,camY:0,H2,finish:H2-70,pegs:[],balls:[],order:[],confetti:[]};
   const m2=marble,rowN=Math.floor((H2-420)/95);
   for(let row=0;row<rowN;row++){
     const y=180+row*95,off=(row%2)?45:0,n=Math.floor((W-80)/90);
@@ -952,7 +960,7 @@ function buildMarble(pick){
       if(x>30&&x<W-30)m2.pegs.push({x:x+rand(-8,8),y:y+rand(-6,6)});
     }
   }
-  MARBLERS.forEach((id,i)=>{
+  field.forEach((id,i)=>{
     m2.balls.push({id,x:W*(0.2+0.2*i)+rand(-6,6),y:60+rand(0,20),vx:rand(-30,30),vy:0,r:15,done:false});
   });
 }
@@ -1046,6 +1054,118 @@ function drawMarble(){
   ctx.fillText('🏁 MARBLE RACE',W/2,40);
 }
 
+
+/* ============ TILT MAZE MINI GAME (v3.1) ============ */
+let tilt=null;
+const TILT_LAYOUTS=[
+ {walls:[[0.35,0.33,0.35,0.024],[0.65,0.66,0.35,0.024]],
+  holes:[[0.45,0.16],[0.6,0.5],[0.3,0.42],[0.55,0.76],[0.86,0.7]],
+  start:[0.08,0.09],goal:[0.9,0.9]},
+ {walls:[[0.33,0.3,0.024,0.32],[0.67,0.7,0.024,0.32]],
+  holes:[[0.5,0.5],[0.15,0.72],[0.85,0.28],[0.5,0.14],[0.5,0.86]],
+  start:[0.08,0.09],goal:[0.9,0.9]},
+ {walls:[[0.24,0.28,0.22,0.024],[0.76,0.5,0.22,0.024],[0.24,0.72,0.22,0.024]],
+  holes:[[0.6,0.16],[0.36,0.5],[0.8,0.8],[0.12,0.52],[0.62,0.62]],
+  start:[0.08,0.09],goal:[0.9,0.9]}
+];
+function buildTilt(li){
+  cam.x=0;cam.y=0;
+  const cfg=({beginner:{holes:2,acc:640,time:50},
+    intermediate:{holes:4,acc:760,time:45},
+    advanced:{holes:5,acc:880,time:40}})[S.diff]||{holes:4,acc:760,time:45};
+  const L=TILT_LAYOUTS[(li===undefined)?Math.floor(rand(0,TILT_LAYOUTS.length)):li];
+  const bx=20,by=84,bw=W-40,bh=H-84-28;
+  const sx=v=>bx+v*bw,sy=v=>by+v*bh;
+  tilt={t:0,time:cfg.time,acc:cfg.acc,balls:3,over:false,inv:0,reward:2,bx,by,bw,bh,
+    walls:L.walls.map(w2=>({x:sx(w2[0]),y:sy(w2[1]),hw:w2[2]*bw,hh:w2[3]*bh})),
+    holes:L.holes.slice(0,cfg.holes).map(h2=>({x:sx(h2[0]),y:sy(h2[1]),r:17})),
+    start:{x:sx(L.start[0]),y:sy(L.start[1])},
+    goal:{x:sx(L.goal[0]),y:sy(L.goal[1]),r:26},
+    ball:{x:sx(L.start[0]),y:sy(L.start[1]),r:13,vx:0,vy:0}};
+}
+function endTilt(msg){
+  if(!tilt||tilt.over)return;tilt.over=true;
+  addPoints(tilt.reward);toast(msg+'  +'+tilt.reward+' 🪙',2400);
+  setTimeout(()=>{mode='none';tilt=null;openShopGate();},1700);
+}
+function tickTilt(dt){
+  if(!tilt||tilt.over)return;
+  const T2=tilt;T2.t+=dt;T2.inv-=dt;
+  let tx=0,ty=0;
+  if(input.keys['ArrowLeft']||input.keys['a'])tx-=1;
+  if(input.keys['ArrowRight']||input.keys['d'])tx+=1;
+  if(input.keys['ArrowUp']||input.keys['w'])ty-=1;
+  if(input.keys['ArrowDown']||input.keys['s'])ty+=1;
+  if(!tx&&!ty&&input.active){
+    tx=clamp((input.x-W/2)/(W*0.32),-1,1);
+    ty=clamp((input.y-H/2)/(H*0.32),-1,1);
+  }
+  const b=T2.ball;
+  b.vx+=tx*T2.acc*dt;b.vy+=ty*T2.acc*dt;
+  b.vx*=(1-2.6*dt);b.vy*=(1-2.6*dt);
+  const mv=Math.hypot(b.vx,b.vy);
+  if(mv>380){b.vx*=380/mv;b.vy*=380/mv;}
+  b.x+=b.vx*dt;b.y+=b.vy*dt;
+  if(b.x<T2.bx+b.r){b.x=T2.bx+b.r;b.vx=Math.abs(b.vx)*0.4;}
+  if(b.x>T2.bx+T2.bw-b.r){b.x=T2.bx+T2.bw-b.r;b.vx=-Math.abs(b.vx)*0.4;}
+  if(b.y<T2.by+b.r){b.y=T2.by+b.r;b.vy=Math.abs(b.vy)*0.4;}
+  if(b.y>T2.by+T2.bh-b.r){b.y=T2.by+T2.bh-b.r;b.vy=-Math.abs(b.vy)*0.4;}
+  for(const w2 of T2.walls){
+    const cx2=clamp(b.x,w2.x-w2.hw,w2.x+w2.hw),cy2=clamp(b.y,w2.y-w2.hh,w2.y+w2.hh);
+    const dx=b.x-cx2,dy=b.y-cy2,dd=Math.hypot(dx,dy);
+    if(dd<b.r&&dd>0.001){
+      b.x=cx2+dx/dd*b.r;b.y=cy2+dy/dd*b.r;
+      if(Math.abs(dx)>Math.abs(dy))b.vx=-b.vx*0.35;else b.vy=-b.vy*0.35;
+    }
+  }
+  if(T2.inv<=0)for(const h2 of T2.holes){
+    if(Math.hypot(b.x-h2.x,b.y-h2.y)<12){
+      T2.balls--;
+      if(T2.balls<=0){endTilt('😵 Out of marbles!');return;}
+      toast('🕳️ Down the hole! '+T2.balls+' left');
+      b.x=T2.start.x;b.y=T2.start.y;b.vx=0;b.vy=0;T2.inv=0.8;
+      break;
+    }
+  }
+  if(Math.hypot(b.x-T2.goal.x,b.y-T2.goal.y)<22){
+    T2.reward=Math.min(18,8+Math.ceil(Math.max(0,T2.time-T2.t)/4));
+    endTilt('🏆 You made it!');return;
+  }
+  if(T2.t>=T2.time){T2.reward=2;endTilt('⏱️ Time up!');}
+}
+function drawTilt(){
+  const T2=tilt;if(!T2)return;
+  ctx.fillStyle='#8a6244';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#d9b380';ctx.fillRect(T2.bx,T2.by,T2.bw,T2.bh);
+  ctx.strokeStyle='rgba(122,79,33,.35)';ctx.lineWidth=2;
+  for(let i=1;i<6;i++){const y=T2.by+T2.bh*i/6;
+    ctx.beginPath();ctx.moveTo(T2.bx,y);ctx.lineTo(T2.bx+T2.bw,y);ctx.stroke();}
+  ctx.strokeStyle='#5b3d20';ctx.lineWidth=10;
+  ctx.strokeRect(T2.bx-5,T2.by-5,T2.bw+10,T2.bh+10);
+  const gl=T2.goal;
+  ctx.fillStyle='#57b544';ctx.beginPath();ctx.arc(gl.x,gl.y,gl.r,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#2e7d32';ctx.lineWidth=4;ctx.beginPath();ctx.arc(gl.x,gl.y,gl.r,0,Math.PI*2);ctx.stroke();
+  ctx.font='22px Fredoka,sans-serif';ctx.textAlign='center';ctx.fillText('🏁',gl.x,gl.y+8);
+  for(const h2 of T2.holes){
+    ctx.fillStyle='#3a2a18';ctx.beginPath();ctx.arc(h2.x,h2.y,h2.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#1c130a';ctx.beginPath();ctx.arc(h2.x+2,h2.y+2,h2.r*0.62,0,Math.PI*2);ctx.fill();
+  }
+  for(const w2 of T2.walls){
+    ctx.fillStyle='#7a4f21';rrPath(w2.x-w2.hw,w2.y-w2.hh,w2.hw*2,w2.hh*2,8);ctx.fill();
+    ctx.strokeStyle='rgba(45,25,12,.5)';ctx.lineWidth=2.5;
+    rrPath(w2.x-w2.hw,w2.y-w2.hh,w2.hw*2,w2.hh*2,8);ctx.stroke();
+  }
+  const b=T2.ball,dn=DINOS[S.dino]||DINOS.rex;
+  ctx.fillStyle='rgba(0,0,0,.14)';ctx.beginPath();ctx.ellipse(b.x,b.y+b.r,b.r*0.9,4,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=dn.color;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=dn.belly;ctx.beginPath();ctx.arc(b.x-3,b.y-3,b.r*0.42,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(45,25,12,.5)';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.stroke();
+  ctx.fillStyle='#fff7e0';ctx.font='700 20px Fredoka,sans-serif';ctx.textAlign='center';
+  ctx.fillText('🕳️ TILT MAZE  ⏱️'+Math.ceil(Math.max(0,T2.time-T2.t))+'s   Marbles: '+T2.balls,W/2,40);
+  ctx.font='600 13px Fredoka,sans-serif';ctx.fillStyle='rgba(255,247,224,.85)';
+  ctx.fillText('Hold and drag to tilt the board · roll to the green pad!',W/2,H-10);
+}
+
 /* ============ QUEST / FLOW ============ */
 function questHUD(){
   if(mode==='boss'){$('quest').textContent='👹 BOSS FIGHT — get close and TAP to bite!';return;}
@@ -1075,7 +1195,8 @@ function openMiniOffer(){
     {id:'shapes',emo:'🔷',text:'Shape Sorter! Fit the shapes in the holes before time runs out. +3 points each!'},
     {id:'spin',emo:'🎰',text:'Lucky Spin! Spend 1 point a spin. Match 3 for a +25 jackpot!'},
     {id:'runner',emo:'🏃',text:'Dino Run! Auto-run: JUMP over rocks and cactus, DUCK under branches. Distance = points!'},
-    {id:'marble',emo:'🏁',text:'Marble Race! Bet 2 points on a dino marble dropping through the pegs. Winner gets +10!'}
+    {id:'marble',emo:'🏁',text:'Marble Race! Bet 2 points on a dino marble dropping through the pegs. Winner gets +10!'},
+    {id:'tilt',emo:'🕳️',text:'Tilt Maze! Hold and drag to tilt the board. Roll your marble to the green pad and dodge the holes!'}
   ];
   pendingMini=games[Math.floor(rand(0,games.length))];
   $('offerEmo').textContent=pendingMini.emo;
@@ -1770,6 +1891,7 @@ function draw(){
   }
   if(mode==='runner')drawRunner();
   if(mode==='marble')drawMarble();
+  if(mode==='tilt')drawTilt();
 }
 
 /* ============ LEVEL MAP ============ */
@@ -1933,13 +2055,14 @@ function showMap(hop){
 /* ============ PAUSE / MAIN MENU ============ */
 let paused=false;
 function setPaused(p){paused=p;if(p)show('scrPause');else hide('scrPause');}
-function inPlay(){return mode==='level'||mode==='boss'||mode==='chomp'||mode==='runner'||mode==='marble';}
+function inPlay(){return mode==='level'||mode==='boss'||mode==='chomp'||mode==='runner'||mode==='marble'||mode==='tilt';}
 $('btnPause').onclick=function(){if(inPlay()&&!paused)setPaused(true);};
 $('btnResume').onclick=function(){setPaused(false);};
 $('btnRestart').onclick=function(){setPaused(false);
   if(mode==='chomp'){buildChomp();}
   else if(mode==='runner'){buildRunner();}
-  else if(mode==='marble'){buildMarble(marble?marble.pick:'rex');}
+  else if(mode==='tilt'){buildTilt();}
+  else if(mode==='marble'){buildMarble(marble?marble.pick:'rex',marble?marble.field:null);}
   else{startLevel();}};
 $('btnMainMenu').onclick=function(){setPaused(false);goMainMenu();};
 $('btnMapMenu').onclick=function(){goMainMenu();};
@@ -1952,7 +2075,7 @@ function refreshSelect(){
   }
 }
 function goMainMenu(){
-  mode='none';world=null;chomp=null;runner=null;marble=null;
+  mode='none';world=null;chomp=null;runner=null;marble=null;tilt=null;
   hide('hud');hide('hpwrap');
   $('bosshud').style.display='none';$('lives').style.display='none';$('btnPause').style.display='none';
   saveGame();refreshSelect();hideAllOverlays();show('scrSelect');
@@ -1987,6 +2110,7 @@ $('btnPlayMini').onclick=()=>{
   else if(pendingMini.id==='shapes'){startShapes();}
   else if(pendingMini.id==='runner'){mode='runner';buildRunner();$('btnPause').style.display='block';}
   else if(pendingMini.id==='marble'){openMarblePick();}
+  else if(pendingMini.id==='tilt'){mode='tilt';buildTilt();$('btnPause').style.display='block';}
   else{startSpin();}
 };
 $('btnMarbleSkip').onclick=()=>{toast('Skipped! On to the next level.');openShopGate();};
