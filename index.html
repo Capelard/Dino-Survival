@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v3.8</title>
+<title>Dino Survival v3.9</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -157,7 +157,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.8</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.9</span></h1>
     <p class="sub" id="selectSub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -329,7 +329,7 @@ const S = { screen:'select', level:1, points:0, dino:null, dinos:[], diff:'inter
 /* v3.8: one starter dino, earn the rest at level gates */
 const DINO_ORDER=['trice','rex','stego','anky','brachio'];
 const DINO_GATES=[3,6,9,12];
-const SPRSCALE={rex:1,anky:0.67,bronto:1.29,stego:0.91,trice:0.81,raptor:1.14};
+const SPRSCALE={rex:1,anky:0.67,bronto:1.29,stego:0.91,trice:0.81,raptor:0.85};
 function unlockGateFor(id){
   if(S.dinos.includes(id))return 0;
   const rest=DINO_ORDER.filter(d=>d!==(S.dinos[0]||S.dino));
