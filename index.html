@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v3.11</title>
+<title>Dino Survival v3.12</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -159,7 +159,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.11</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.12</span></h1>
     <p class="sub" id="selectSub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -2391,7 +2391,7 @@ function renderMapDinos(){
     const nm=DINOS[id].name;
     const fs=nm.length<=5?13:nm.length<=8?12:nm.length<=10?10:9; /* v3.11: shrink long names to one line */
     b.innerHTML=un?('<img src="sprites/'+sp+'_0.png" onerror="this.style.display=\'none\'"><span class="mdlbl" style="font-size:'+fs+'px">'+nm+'</span>')
-                 :('<span class="mdlock">\ud83d\udd12<br>Lv '+unlockGateFor(id)+'</span>');
+                 :('<img src="sprites/'+sp+'_0.png" onerror="this.style.display=\'none\'"><span class="mdlock">\ud83d\udd12 Lv '+unlockGateFor(id)+'</span>'); /* v3.12: show the dino you unlock next, grayed */
     if(id===S.dino)b.classList.add('sel');
     if(!un)b.classList.add('lock');
     b.onclick=()=>{
