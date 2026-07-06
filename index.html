@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v3.7</title>
+<title>Dino Survival v3.8</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -87,6 +87,11 @@
     border:4px solid var(--bark);background:var(--cream);color:var(--bark);font-size:20px;font-weight:700;
     box-shadow:0 4px 0 rgba(0,0,0,.25);display:none;font-family:inherit}
   #scrMap{flex-direction:column;padding:0;background:linear-gradient(#c8e6a8,#8cc46a)}
+  #mapDinos{display:flex;gap:8px;justify-content:center;align-items:stretch;padding:6px 10px 2px;flex-wrap:wrap}
+  .mdino{width:60px;height:64px;border-radius:14px;border:3px solid #6b4423;background:#fff8e8;display:flex;flex-direction:column;align-items:center;justify-content:center;font:700 10px Fredoka,sans-serif;color:#4a2e1f;padding:2px;line-height:1.15}
+  .mdino img{width:42px;height:34px;object-fit:contain}
+  .mdino.sel{border-color:#f2b02c;box-shadow:0 0 0 3px rgba(242,176,44,.45)}
+  .mdino.lock{filter:grayscale(1);opacity:.65}
   #mapHead{width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;font-weight:700;color:var(--bark);font-size:21px}
   #mapHead .sp{flex:1}
   #mapHead button{border:4px solid var(--bark);background:var(--cream);border-radius:14px;font-size:18px;padding:4px 10px;font-family:inherit}
@@ -129,6 +134,7 @@
     <svg id="mapSvg" preserveAspectRatio="none"></svg>
     <div id="mapMarker"><img id="mapMarkerImg" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><span class="mfall" id="mapMarkerFall">🦖</span></div>
   </div></div>
+  <div id="mapDinos"></div>
   <div id="mapFoot"><button id="btnMapPlay" class="btn green">▶ Play</button></div>
 </div>
 <div id="toast"></div>
@@ -143,6 +149,7 @@
       <button id="btnKnobL" class="btn small gray">🕹 Left knob: ON</button>
       <button id="btnKnobR" class="btn small gray">🕹 Right knob: ON</button>
     </div>
+    <button id="btnPauseMap" class="btn gray">🗺 Back to Map</button><br>
     <button id="btnMainMenu" class="btn gray">🏠 Main Menu</button>
   </div>
 </div>
@@ -150,14 +157,14 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.7</span></h1>
-    <p class="sub">Pick your dinosaur and start playing!</p>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.8</span></h1>
+    <p class="sub" id="selectSub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
       <button class="btn small gray diffbtn" data-diff="intermediate">🦖 Intermediate</button>
       <button class="btn small gray diffbtn" data-diff="advanced">🌋 Advanced</button>
     </div>
-    <div class="dinorow">
+    <div class="dinorow" id="dinoGrid">
       <div class="dcard" data-dino="rex"><div class="emo"><img src="sprites/rex_0.png" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span style="display:none">🦖</span></div><b>T-Rex</b>
         <span>Hunts prey. Bites raptors back. Bonus: <b>Teeth</b></span><span class="tag meat">MEAT EATER</span></div>
       <div class="dcard" data-dino="anky"><div class="emo"><img src="sprites/anky_0.png" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span style="display:none">🛡</span></div><b>Ankylosaurus</b>
@@ -172,6 +179,7 @@
     </div>
     <p id="saveNote" class="sub"></p>
     <button id="btnContinue" class="btn green hidden">▶ Continue Game</button>
+    <button id="btnStartOver" class="btn gray hidden">🔄 Start Over</button>
   </div>
 </div>
 
@@ -288,7 +296,7 @@
 /* ============ SAVE SYSTEM (window.storage with in-memory fallback) ============ */
 let memSave = null;
 async function saveGame(){
-  const data = JSON.stringify({v:1,level:S.level,points:S.points,dino:S.dino,
+  const data = JSON.stringify({v:1,level:S.level,points:S.points,dino:S.dino,dinos:S.dinos,
     up:S.up,owned:S.owned,wearing:S.wearing,diff:S.diff});
   memSave = data;
   try{ if(window.storage) await window.storage.set('dino-survival-save', data);
@@ -316,8 +324,27 @@ const SKINS = [
   {id:'crown',name:'Royal Crown',emoji:'👑',cost:40,slot:'head'}
 ];
 function skinSlot(id){const k=SKINS.find(s=>s.id===id);return k?k.slot:'head';}
-const S = { screen:'select', level:1, points:0, dino:null, diff:'intermediate',
+const S = { screen:'select', level:1, points:0, dino:null, dinos:[], diff:'intermediate',
   up:{power:0,armor:0,speed:0}, owned:[], wearing:[], lives:3 };
+/* v3.8: one starter dino, earn the rest at level gates */
+const DINO_ORDER=['trice','rex','stego','anky','brachio'];
+const DINO_GATES=[3,6,9,12];
+const SPRSCALE={rex:1,anky:0.67,bronto:1.29,stego:0.91,trice:0.81,raptor:1.14};
+function unlockGateFor(id){
+  if(S.dinos.includes(id))return 0;
+  const rest=DINO_ORDER.filter(d=>d!==(S.dinos[0]||S.dino));
+  const i=rest.indexOf(id);return i<0?0:DINO_GATES[i];
+}
+function syncUnlocks(quiet){
+  if(!S.dinos.length&&S.dino)S.dinos=[S.dino];
+  const rest=DINO_ORDER.filter(d=>d!==S.dinos[0]);
+  rest.forEach((d,i)=>{
+    if(S.level>=DINO_GATES[i]&&!S.dinos.includes(d)){
+      S.dinos.push(d);
+      if(!quiet)toast('\ud83c\udf89 New dino unlocked: '+DINOS[d].name+'! Switch on the map.',2600);
+    }
+  });
+}
 const DIFF={beginner:{enemy:0.65,prey:0.6,label:'Beginner'},
   intermediate:{enemy:1,prey:1,label:'Intermediate'},
   advanced:{enemy:1.3,prey:1.2,label:'Advanced'}};
@@ -495,7 +522,7 @@ function bossDefeated(){
   world.done=true;$('bosshud').style.display='none';$('lives').style.display='none';
   const reward=20+S.level*2; addPoints(reward);
   $('bossWinText').textContent=`You earned ${reward} points! Your dino is legendary.`;
-  S.level++; saveGame(); show('scrBossWin');
+  S.level++; syncUnlocks(); saveGame(); show('scrBossWin');
 }
 
 /* ============ CHOMP CHASE MINI GAME ============ */
@@ -1380,7 +1407,7 @@ function startLevel(){
 function levelClear(){
   const bonus=5+S.level; addPoints(bonus);
   $('clearText').textContent=`Level ${S.level} done! Bonus +${bonus} points. Total: ${S.points} 🪙`;
-  S.level++; saveGame(); show('scrClear');
+  S.level++; syncUnlocks(); saveGame(); show('scrClear');
 }
 function maybeOfferMini(){ // ~60% of level clears
   if(Math.random()<0.6){openMiniOffer();return true;} return false;
@@ -2043,7 +2070,7 @@ function drawDino(x,y,r,face,species,anim,acc,opts){
   if(SPRREADY[key]){
     const imgs=SPRIMG[key];
     const img=imgs[Math.floor(anim)%imgs.length];
-    const H=r*3.0,W=H*img.width/img.height;
+    const H=r*3.0*(SPRSCALE[key]||1),W=H*img.width/img.height;
     ctx.save();ctx.translate(x,y);
     ctx.fillStyle='rgba(0,0,0,.14)';
     ctx.beginPath();ctx.ellipse(0,H*0.42,Math.min(W*0.5,r*1.4),r*0.3,0,0,Math.PI*2);ctx.fill();
@@ -2333,12 +2360,34 @@ function animateHop(a,b,done){
   }
   requestAnimationFrame(step);
 }
+function renderMapDinos(){
+  const box=$('mapDinos');box.innerHTML='';
+  DINO_ORDER.forEach(id=>{
+    const b=document.createElement('button');b.className='mdino';
+    const sp=(id==='brachio')?'bronto':id;
+    const un=S.dinos.includes(id);
+    b.innerHTML=un?('<img src="sprites/'+sp+'_0.png" onerror="this.style.display=\'none\'">'+DINOS[id].name.split(' ')[0])
+                 :('\ud83d\udd12<br>Lv '+unlockGateFor(id));
+    if(id===S.dino)b.classList.add('sel');
+    if(!un)b.classList.add('lock');
+    b.onclick=()=>{
+      if(!un){toast('\ud83d\udd12 Reach Level '+unlockGateFor(id)+' to unlock the '+DINOS[id].name+'!');return;}
+      if(S.dino===id)return;
+      S.dino=id;saveGame();
+      const s2=(id==='brachio')?'bronto':id;
+      $('mapMarkerImg').src='sprites/'+s2+'_0.png';
+      toast('Now playing as '+DINOS[id].name+'!');renderMapDinos();
+    };
+    box.appendChild(b);
+  });
+}
 function showMap(hop){
   hideAllOverlays();hide('hud');hide('hpwrap');
   $('btnPause').style.display='none';$('bosshud').style.display='none';$('lives').style.display='none';
   mode='none';world=null;
   buildMap();
   $('mapPts').textContent='🪙 '+S.points;
+  renderMapDinos();
   const sp=(S.dino==='brachio')?'bronto':S.dino;
   const img=$('mapMarkerImg');
   img.style.display='';$('mapMarkerFall').style.display='none';img.src='sprites/'+sp+'_0.png';
@@ -2374,15 +2423,26 @@ $('btnRestart').onclick=function(){setPaused(false);
   else if(mode==='marble'){buildMarble(marble?marble.pick:'rex',marble?marble.field:null);}
   else{startLevel();}};
 $('btnMainMenu').onclick=function(){setPaused(false);goMainMenu();};
+$('btnPauseMap').onclick=function(){setPaused(false);showMap(false);};
 $('btnMapMenu').onclick=function(){goMainMenu();};
 $('btnMapPlay').onclick=function(){if(!$('btnMapPlay').disabled)showIntro();};
 window.addEventListener('keydown',function(e){if(e.key==='Escape'&&inPlay())setPaused(!paused);});
 function refreshSelect(){
-  if(S.dino){
-    $('saveNote').textContent='Saved: '+DINOS[S.dino].name+', Level '+S.level+', '+S.points+' points. Continue, or pick a dino to start over.';
-    $('btnContinue').classList.remove('hidden');
-  }
+  const has=!!S.dino;
+  $('dinoGrid').classList.toggle('hidden',has);
+  $('btnContinue').classList.toggle('hidden',!has);
+  $('btnStartOver').classList.toggle('hidden',!has);
+  $('selectSub').textContent=has?'Welcome back!':'Pick your starter dino. You will unlock the others as you play!';
+  $('saveNote').textContent=has?('Saved: '+DINOS[S.dino].name+', Level '+S.level+', '+S.points+' points, '+S.dinos.length+'/5 dinos'):'';
 }
+$('btnStartOver').onclick=()=>{
+  if(!window.confirm||confirm('Start over? This erases the whole saved game on this device.')){
+    S.level=1;setPoints(0);S.dino=null;S.dinos=[];
+    S.up={power:0,armor:0,speed:0};S.owned=[];S.wearing=[];
+    try{localStorage.removeItem('dino-survival-save');}catch(e){}
+    memSave=null;refreshSelect();toast('Fresh start! Pick your dino.');
+  }
+};
 function goMainMenu(){
   mode='none';world=null;chomp=null;runner=null;marble=null;tilt=null;
   hide('hud');hide('hpwrap');
@@ -2401,7 +2461,7 @@ document.querySelectorAll('.diffbtn').forEach(b=>{
 });
 setDiffUI();
 document.querySelectorAll('.dcard').forEach(c=>{
-  c.onclick=()=>{S.dino=c.dataset.dino;S.level=1;setPoints(0);
+  c.onclick=()=>{S.dino=c.dataset.dino;S.dinos=[c.dataset.dino];S.level=1;setPoints(0);
     S.up={power:0,armor:0,speed:0};S.owned=[];S.wearing=[];
     saveGame();showMap(false);};
 });
@@ -2435,7 +2495,7 @@ $('btnShopDone').onclick=()=>{
   if(!maybeOfferMini()) showMap(true); };
 $('btnSkipMini').onclick=()=>{toast('Skipped! On to the next level.');openShopGate();};
 $('btnPlayMini').onclick=()=>{
-  hideAllOverlays();
+  hideAllOverlays();hide('hud');hide('hpwrap');
   if(pendingMini.id==='chomp'){mode='chomp';buildChomp();$('btnPause').style.display='block';}
   else if(pendingMini.id==='shapes'){startShapes();}
   else if(pendingMini.id==='runner'){mode='runner';buildRunner();$('btnPause').style.display='block';}
@@ -2456,9 +2516,10 @@ window.addEventListener('keydown',function(e){
     S.up=save.up||{power:0,armor:0,speed:0};S.owned=save.owned||[];
     S.wearing=Array.isArray(save.wearing)?save.wearing:(save.wearing?[save.wearing]:[]);
     S.diff=save.diff||'intermediate';setDiffUI();
-    $('saveNote').textContent=`Saved game found: ${DINOS[S.dino].name}, Level ${S.level}, ${S.points} points. Continue, or pick a dino to start over.`;
-    $('btnContinue').classList.remove('hidden');
-  }
+    S.dinos=(Array.isArray(save.dinos)&&save.dinos.length)?save.dinos:[save.dino];
+    syncUnlocks(true);saveGame();
+    showMap(false); /* v3.8: straight to the map, no select-screen reset trap */
+  } else { refreshSelect(); }
 })();
 if('serviceWorker' in navigator && location.protocol.indexOf('http')===0 && !window.storage){
   try{navigator.serviceWorker.register('sw.js').catch(function(){});}catch(e){}
