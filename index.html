@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v3.5</title>
+<title>Dino Survival v3.6</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -150,7 +150,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.5</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.6</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -924,7 +924,7 @@ function buildRunner(){
   const gy=Math.min(H*0.74,H-120);
   runner={t:0,dur:45,x:0,tier,speed:250*tier,gy,py:0,vy:0,
     hearts:3,inv:0,obs:[],next:1.5,reward:0,over:false,
-    eggs:[],eggPts:0,eggNext:1.6,lungeT:0,chaseX:0,bones:[],
+    eggs:[],eggPts:0,eggNext:1.6,lungeT:0,chaseX:0,bones:[],pops:[],
     clouds:[{x:W*0.25,y:H*0.16,s:1},{x:W*0.7,y:H*0.26,s:0.7},{x:W*0.95,y:H*0.1,s:1.2}]};
   for(let i=0;i<10;i++)runner.bones.push({x:rand(0,W+140),y:rand(gy+26,Math.max(gy+40,H-18)),
     kind:i%3,s:rand(0.7,1.15)});
@@ -967,18 +967,28 @@ function tickRunner(dt){
     bn.y=rand(R2.gy+26,Math.max(R2.gy+40,H-18));bn.kind=Math.floor(rand(0,3));bn.s=rand(0.7,1.15);}}
   R2.inv-=dt;R2.lungeT=Math.max(0,R2.lungeT-dt);
   R2.chaseX=W*0.26-46-R2.hearts*58+(R2.lungeT>0?Math.sin(R2.lungeT*10)*14+26:0);
-  const px=W*0.26,pr=17,pTop=R2.gy+R2.py-50,pBot=R2.gy+R2.py+2;
+  const px=W*0.26,pr=17;let pTop=R2.gy+R2.py-50,pBot=R2.gy+R2.py+2;
+  for(let i=R2.pops.length-1;i>=0;i--){const p2=R2.pops[i];p2.t+=dt;if(p2.t>0.8)R2.pops.splice(i,1);}
   for(let i=R2.eggs.length-1;i>=0;i--){const e=R2.eggs[i];
     if(Math.abs(e.x-px)<pr+e.r&&Math.abs(e.y-(R2.gy+R2.py-24))<pr+e.r+8){
       R2.eggs.splice(i,1);R2.eggPts++;toast('🥚 +1 🪙',600);
     }}
   for(const o of R2.obs){
     const b2=RUNOB[o.kind],ox0=o.x-b2.w/2+6,ox1=o.x+b2.w/2-6;
-    const oy0=b2.air?R2.gy-84:R2.gy-b2.h,oy1=b2.air?R2.gy-84+b2.h:R2.gy;
-    if(R2.inv<=0&&px+pr>ox0&&px-pr<ox1&&pBot>oy0&&pTop<oy1){
-      R2.hearts--;R2.inv=1.2;R2.lungeT=0.9;
+    const oy0=R2.gy-b2.h,oy1=R2.gy;
+    if(px+pr>ox0&&px-pr<ox1&&pBot>oy0&&pTop<oy1){
+      /* v3.6: land on TOP of anything but a cactus -> bounce, no damage */
+      if(o.kind!=='cactus'&&R2.vy>0&&pBot-oy0<26){
+        R2.py=oy0-R2.gy-2;R2.vy=-640;
+        R2.pops.push({x:px+14,y:oy0-16,t:0});
+        pTop=R2.gy+R2.py-50;pBot=R2.gy+R2.py+2;
+        continue;
+      }
+      if(R2.inv<=0){
+        R2.hearts--;R2.inv=1.2;R2.lungeT=0.9;
       if(R2.hearts<=0){R2.reward=0;endRunner('😵 The raptor caught you at '+Math.floor(R2.x/50)+'m!');return;}
       toast('💥 Ouch! The raptor is closing in!  '+'❤️'.repeat(R2.hearts));
+      }
     }
   }
   R2.reward=Math.min(40,Math.floor(R2.x/380)+R2.eggPts);
@@ -1030,6 +1040,10 @@ function drawRunner(){
   const px=W*0.26,py2=R2.gy+R2.py-20;
   /* the chaser: hearts left set how far back it trails */
   drawDino(R2.chaseX,R2.gy-20,19,1,'raptor',R2.x/24,null);
+  for(const p2 of R2.pops){ctx.save();ctx.globalAlpha=Math.max(0,1-p2.t/0.8);
+    ctx.font='900 22px system-ui';ctx.textAlign='center';
+    ctx.strokeStyle='#4a2e1f';ctx.lineWidth=4;ctx.strokeText('BOING!',p2.x,p2.y-p2.t*46);
+    ctx.fillStyle='#ffd94d';ctx.fillText('BOING!',p2.x,p2.y-p2.t*46);ctx.restore();}
   if(!(R2.inv>0&&Math.floor(R2.t*12)%2===0)){
     drawDino(px,py2,20,1,S.dino,R2.py===0?R2.x/26:0.5,S.wearing);
   }
