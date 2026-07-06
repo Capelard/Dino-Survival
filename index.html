@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v3.9</title>
+<title>Dino Survival v3.10</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -157,7 +157,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.9</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.10</span></h1>
     <p class="sub" id="selectSub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -1244,6 +1244,9 @@ function drawMarble(){
 let tilt=null;
 /* v3.2: Tilt Maze is tilt-only. Sensor blocked -> Marble Race substitutes for the session. */
 let tiltBlocked=false;
+/* v3.10: one source of truth for tilt-maze controls so the words always match the device */
+function tiltIsTouch(){return ('ontouchstart' in window)||(navigator.maxTouchPoints>0);}
+function tiltCtrlWords(){return tiltIsTouch()?'TILT your tablet or phone':'Use the ARROW KEYS (or WASD)';}
 const tiltSensor={on:false,base:null,tx:0,ty:0,seen:false};
 function tiltHandler(e){
   if(e.gamma==null&&e.beta==null)return;
@@ -1387,7 +1390,7 @@ function drawTilt(){
   ctx.fillStyle='#fff7e0';ctx.font='700 20px Fredoka,sans-serif';ctx.textAlign='center';
   ctx.fillText('🕳️ TILT MAZE  ⏱️'+Math.ceil(Math.max(0,T2.time-T2.t))+'s   Marbles: '+T2.balls,W/2,40);
   ctx.font='600 13px Fredoka,sans-serif';ctx.fillStyle='rgba(255,247,224,.85)';
-  ctx.fillText((tiltSensor.on?'TILT your tablet':'Arrow keys')+' to roll the marble to the green pad!',W/2,H-10);
+  ctx.fillText(tiltCtrlWords()+' to roll the marble to the green pad!',W/2,H-10);
 }
 
 /* ============ QUEST / FLOW ============ */
@@ -1420,7 +1423,7 @@ function openMiniOffer(){
     {id:'spin',emo:'🎰',text:'Lucky Spin! ONE spin for 1 point. Match 3 for a +25 jackpot!'},
     {id:'runner',emo:'🏃',text:'Dino Run! JUMP over rocks and cactus, grab eggs, and stay ahead of the raptor!'},
     {id:'marble',emo:'🏁',text:'Marble Race! Bet 2 points on a dino marble dropping through the pegs. Winner gets +10!'},
-    {id:'tilt',emo:'🕳️',text:'Tilt Maze! TILT your tablet to roll the marble to the green pad and dodge the holes!'}
+    {id:'tilt',emo:'🕳️',text:'Tilt Maze! '+tiltCtrlWords()+' to roll the marble to the green pad and dodge the holes!'}
   ];
   const pool=tiltBlocked?games.filter(g2=>g2.id!=='tilt'):games;
   pendingMini=pool[Math.floor(rand(0,pool.length))];
