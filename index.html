@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v3.6</title>
+<title>Dino Survival v3.7</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -150,7 +150,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.6</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.7</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -732,8 +732,15 @@ function tickChomp(dt){
   chomp.t-=dt;
   const p=chomp.player,r=chomp.rival;
   playerControl(p,dt,170);
-  const rv=90*dmult('enemy');r.x+=r.vx*rv*dt;r.y+=r.vy*rv*dt;
-  if(r.x<30||r.x>W-30)r.vx*=-1; if(r.y<80||r.y>H-40)r.vy*=-1;
+  const rv=90*dmult('enemy');
+  /* v3.7: rival brain: flee a bigger player, hunt a smaller one, else chase the nearest cherry */
+  let tx=null,ty=null;const pd=dist(p,r);
+  if(p.r>r.r+4&&pd<180){tx=r.x+(r.x-p.x);ty=r.y+(r.y-p.y);}
+  else if(r.r>p.r+4&&pd<220){tx=p.x;ty=p.y;}
+  else{let best=1e9;for(const d of chomp.dots){const dd=dist(r,d);if(dd<best){best=dd;tx=d.x;ty=d.y;}}}
+  if(tx!==null){const dx=tx-r.x,dy=ty-r.y,m=Math.hypot(dx,dy)||1;r.vx=dx/m;r.vy=dy/m;}
+  r.x+=r.vx*rv*dt;r.y+=r.vy*rv*dt;
+  r.x=clamp(r.x,30,W-30);r.y=clamp(r.y,80,H-40);
   for(let i=chomp.dots.length-1;i>=0;i--){const d=chomp.dots[i];
     if(dist(p,d)<p.r+d.r){chomp.dots.splice(i,1);p.r+=1.2;p.eaten++;chomp.reward+=1;
       chomp.dots.push({x:rand(30,W-30),y:rand(90,H-60),r:6});}
@@ -1381,7 +1388,7 @@ function maybeOfferMini(){ // ~60% of level clears
 let pendingMini=null;
 function openMiniOffer(){
   const games=[
-    {id:'chomp',emo:'🐍',text:'Chomp Chase! Eat dots, grow big, and try to eat the rival dino. Earn bonus points!'},
+    {id:'chomp',emo:'🐍',text:'Chomp Chase! Eat cherries \ud83c\udf52, grow big, and try to eat the rival dino before it outgrows you!'},
     {id:'shapes',emo:'🔷',text:'Shape Sorter! Fit the shapes in the holes before time runs out. +3 points each!'},
     {id:'spin',emo:'🎰',text:'Lucky Spin! ONE spin for 1 point. Match 3 for a +25 jackpot!'},
     {id:'runner',emo:'🏃',text:'Dino Run! JUMP over rocks and cactus, grab eggs, and stay ahead of the raptor!'},
@@ -2170,7 +2177,13 @@ function draw(){
   }
   if(mode==='chomp'&&chomp){
     ctx.fillStyle='rgba(20,40,60,.25)';ctx.fillRect(0,0,W,H);
-    for(const d of chomp.dots){ctx.fillStyle='#ffd34d';ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,Math.PI*2);ctx.fill();}
+    for(const d of chomp.dots){
+      ctx.strokeStyle='#6b4423';ctx.lineWidth=2;ctx.beginPath();
+      ctx.moveTo(d.x,d.y-d.r+1);ctx.quadraticCurveTo(d.x+3,d.y-d.r-7,d.x+6,d.y-d.r-10);ctx.stroke();
+      ctx.fillStyle='#7fbf3f';ctx.beginPath();ctx.ellipse(d.x+7,d.y-d.r-10,4.5,2.5,-0.5,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#e0333c';ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.45)';ctx.beginPath();ctx.arc(d.x-d.r*0.35,d.y-d.r*0.35,d.r*0.3,0,Math.PI*2);ctx.fill();
+    }
     drawDino(chomp.rival.x,chomp.rival.y,chomp.rival.r,chomp.rival.vx>0?1:-1,'raptor',performance.now()/120,null);
     drawDino(chomp.player.x,chomp.player.y,chomp.player.r,chomp.player.face,S.dino,performance.now()/120,S.wearing);
     ctx.fillStyle='#fff';ctx.font='700 20px Fredoka,sans-serif';ctx.textAlign='center';
