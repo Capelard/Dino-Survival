@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v3.10</title>
+<title>Dino Survival v3.11</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -87,9 +87,11 @@
     border:4px solid var(--bark);background:var(--cream);color:var(--bark);font-size:20px;font-weight:700;
     box-shadow:0 4px 0 rgba(0,0,0,.25);display:none;font-family:inherit}
   #scrMap{flex-direction:column;padding:0;background:linear-gradient(#c8e6a8,#8cc46a)}
-  #mapDinos{display:flex;gap:8px;justify-content:center;align-items:stretch;padding:6px 10px 2px;flex-wrap:wrap}
-  .mdino{width:60px;height:64px;border-radius:14px;border:3px solid #6b4423;background:#fff8e8;display:flex;flex-direction:column;align-items:center;justify-content:center;font:700 10px Fredoka,sans-serif;color:#4a2e1f;padding:2px;line-height:1.15}
-  .mdino img{width:42px;height:34px;object-fit:contain}
+  #mapDinos{display:flex;gap:7px;justify-content:center;align-items:stretch;padding:7px 8px 3px;flex-wrap:wrap}
+  .mdino{width:78px;min-height:80px;border-radius:14px;border:3px solid #6b4423;background:#fff8e8;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;font-family:Fredoka,sans-serif;font-weight:700;color:#4a2e1f;padding:6px 4px 7px;overflow:hidden}
+  .mdino img{width:48px;height:38px;object-fit:contain}
+  .mdino .mdlbl{white-space:nowrap;line-height:1;letter-spacing:-.2px}
+  .mdino .mdlock{font-size:11px;line-height:1.2;text-align:center}
   .mdino.sel{border-color:#f2b02c;box-shadow:0 0 0 3px rgba(242,176,44,.45)}
   .mdino.lock{filter:grayscale(1);opacity:.65}
   #mapHead{width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;font-weight:700;color:var(--bark);font-size:21px}
@@ -157,7 +159,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.10</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.11</span></h1>
     <p class="sub" id="selectSub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -2242,14 +2244,31 @@ function paintMapBg(Wpx,totalH,maxL,rowH,pad){
   if(ENV.grassCvs){g.fillStyle=g.createPattern(ENV.grassCvs,'repeat');}
   else{g.fillStyle='#7cc351';}
   g.fillRect(0,0,Wpx,totalH);
+  /* v3.11: paint the biome "fog" as one soft vertical gradient so bands
+     fade into each other instead of hard-cutting at each boundary. */
   const bandOf=i=>Math.floor((i-1)/5)%4;
-  const tints=[null,'rgba(15,75,15,.10)','rgba(120,88,48,.16)','rgba(232,242,255,.34)'];
+  const tintRGBA=['rgba(124,195,81,0)','rgba(15,75,15,0.10)','rgba(120,88,48,0.16)','rgba(232,242,255,0.34)'];
+  const fade=rowH*0.9; /* half the blend zone; ~1.8 rows total across a boundary */
+  const stops=[];
   for(let i=1;i<=maxL;i+=5){
     const b=bandOf(i);
+    const yTop=totalH-pad-(i+4)*rowH+rowH*0.5;
     const yBot=totalH-pad-(i-1)*rowH+rowH*0.5;
-    const top=totalH-pad-(i+4)*rowH+rowH*0.5;
-    if(tints[b]){g.fillStyle=tints[b];g.fillRect(0,Math.max(0,top),Wpx,yBot-Math.max(0,top));}
+    stops.push([yTop+fade,tintRGBA[b]]);
+    stops.push([yBot-fade,tintRGBA[b]]);
   }
+  stops.sort((a,c)=>a[0]-c[0]);
+  stops.unshift([0,stops[0][1]]);
+  stops.push([totalH,stops[stops.length-1][1]]);
+  const grad=g.createLinearGradient(0,0,0,totalH);
+  let lastOff=-1;
+  for(const s of stops){
+    let off=Math.min(1,Math.max(0,s[0]/totalH));
+    if(off<=lastOff)off=Math.min(1,lastOff+1e-4);
+    lastOff=off;
+    grad.addColorStop(off,s[1]);
+  }
+  g.fillStyle=grad;g.fillRect(0,0,Wpx,totalH);
   const rnd=mapSrand(1337+maxL);
   const placed=[];
   function place(ny,w,h){
@@ -2369,8 +2388,10 @@ function renderMapDinos(){
     const b=document.createElement('button');b.className='mdino';
     const sp=(id==='brachio')?'bronto':id;
     const un=S.dinos.includes(id);
-    b.innerHTML=un?('<img src="sprites/'+sp+'_0.png" onerror="this.style.display=\'none\'">'+DINOS[id].name.split(' ')[0])
-                 :('\ud83d\udd12<br>Lv '+unlockGateFor(id));
+    const nm=DINOS[id].name;
+    const fs=nm.length<=5?13:nm.length<=8?12:nm.length<=10?10:9; /* v3.11: shrink long names to one line */
+    b.innerHTML=un?('<img src="sprites/'+sp+'_0.png" onerror="this.style.display=\'none\'"><span class="mdlbl" style="font-size:'+fs+'px">'+nm+'</span>')
+                 :('<span class="mdlock">\ud83d\udd12<br>Lv '+unlockGateFor(id)+'</span>');
     if(id===S.dino)b.classList.add('sel');
     if(!un)b.classList.add('lock');
     b.onclick=()=>{
