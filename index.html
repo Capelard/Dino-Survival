@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v3.2</title>
+<title>Dino Survival v3.3</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -54,11 +54,11 @@
   .pill{background:var(--cream);border:4px solid var(--bark);border-radius:16px;padding:6px 12px;
     font-weight:700;color:var(--bark);font-size:15px;box-shadow:0 4px 0 rgba(0,0,0,.2)}
   #quest{max-width:52vw}
-  #hpwrap{position:fixed;bottom:12px;left:12px;right:12px;z-index:10;pointer-events:none;display:flex;justify-content:center}
-  #hpbar{width:min(360px,80vw);height:22px;background:#3a2417;border:4px solid var(--bark);border-radius:14px;overflow:hidden}
+  #hpwrap{position:fixed;bottom:10px;left:12px;right:12px;z-index:10;pointer-events:none;display:flex;justify-content:center}
+  #hpbar{width:min(240px,34vw);height:13px;background:#3a2417;border:3px solid var(--bark);border-radius:10px;overflow:hidden;opacity:.92}
   #hpfill{height:100%;background:linear-gradient(90deg,#57b544,#8ee06a);width:100%;transition:width .2s}
   #bosshud{position:fixed;top:64px;left:0;right:0;display:none;justify-content:center;z-index:10;pointer-events:none}
-  #bossbar{width:min(420px,86vw);height:20px;background:#3a2417;border:4px solid var(--bark);border-radius:12px;overflow:hidden}
+  #bossbar{width:min(300px,42vw);height:13px;background:#3a2417;border:3px solid var(--bark);border-radius:10px;overflow:hidden;opacity:.92}
   #bossfill{height:100%;background:linear-gradient(90deg,#e0523d,#ff8a5c);width:100%}
   #lives{position:fixed;top:60px;right:12px;z-index:10;font-size:22px;display:none}
 
@@ -123,7 +123,7 @@
 <div id="bosshud"><div id="bossbar"><div id="bossfill"></div></div></div>
 <div id="hpwrap" class="hidden"><div id="hpbar"><div id="hpfill"></div></div></div>
 <div id="scrMap" class="overlay hidden">
-  <div id="mapHead">🗺 Level Map<span class="sp"></span><span id="mapPts"></span><button id="btnMapMenu">🏠</button></div>
+  <div id="mapHead">🗺 Level Map<span class="sp"></span><span id="mapPts"></span><button id="btnMapShop">🛒</button><button id="btnMapMenu">🏠</button></div>
   <div id="mapScroll"><div id="mapPath">
     <canvas id="mapBg"></canvas>
     <svg id="mapSvg" preserveAspectRatio="none"></svg>
@@ -137,6 +137,7 @@
   <div class="panel">
     <h2>⏸ Paused</h2>
     <button id="btnResume" class="btn green">▶ Resume</button><br>
+    <button id="btnPauseShop" class="btn gold">🛒 Shop</button><br>
     <button id="btnRestart" class="btn gold">↻ Restart Level</button><br>
     <button id="btnMainMenu" class="btn gray">🏠 Main Menu</button>
   </div>
@@ -145,7 +146,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.2</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.3</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -380,7 +381,7 @@ function questFor(level){
     const d=DINOS[S.dino];
     return d.diet==='meat'
       ? {type:'food',need:3+Math.floor(level/2),text:`Catch ${3+Math.floor(level/2)} prey 🐀`,emo:'🍖'}
-      : {type:'food',need:3+Math.floor(level/2),text:`Eat ${3+Math.floor(level/2)} bushes 🌿`,emo:'🌿'};
+      : {type:'food',need:3+Math.floor(level/2),text:`Eat ${3+Math.floor(level/2)} berry bushes`,emo:'🌿'};
   }
   return {type:'survive',need:30+level*2,text:`Survive ${30+level*2} seconds ⏱️`,emo:'⏱️'};
 }
@@ -457,7 +458,8 @@ function buildBoss(){
   world={t:0,done:false,w:W,h:H,player:{x:W/2,y:H*0.75,r:22,hp:100,face:1,anim:0},
     boss:{x:W/2,y:H*0.3,r:52,hp:bhp,maxhp:bhp,vx:1,charging:false,chargeT:0,tx:0,ty:0,cool:2/dmult('enemy')},
     eggs:[],bushes:[],trees:[],prey:[],raptors:[],pops:[],deco:[],flowers:[],obs:[]};
-  for(let i=0;i<3;i++) spawnBush();
+  if(DINOS[S.dino].diet==='meat'){for(let i=0;i<2;i++) spawnPrey();}
+  else{for(let i=0;i<3;i++) spawnBush();}
   genDecor(world,2,7);
   $('bosshud').style.display='flex'; $('lives').style.display='block';
 }
@@ -466,6 +468,17 @@ function updateLives(){$('lives').textContent='❤️'.repeat(S.lives)+'🖤'.re
 /* ============ TAP (boss bite) ============ */
 function onTap(x,y){
   if(mode==='runner'){if(y<H*0.62)runnerJump();return;}
+  /* v3.3: plant eaters fight back. Tap with a raptor in reach = tail bonk,
+     knockback plus a short stun. 1 second cooldown. */
+  if(mode==='level'&&world&&!world.done&&DINOS[S.dino]&&DINOS[S.dino].diet==='plant'){
+    const p2=world.player;
+    if((p2.swipeCool||0)<=world.t){
+      let best=null,bd=1e9;
+      for(const r of world.raptors){const d=dist(p2,r);if(d<p2.r+r.r+50&&d<bd){bd=d;best=r;}}
+      if(best){p2.swipeCool=world.t+1.0;best.stun=1.4;knockback(best,p2,110);
+        world.pops.push({x:best.x,y:best.y-26,txt:'BONK! 💫',t:0,color:'#ffd34d'});}
+    }
+  }
   if(mode!=='boss'||!world||world.done) return;
   const b=world.boss,p=world.player;
   if(dist(p,b)<b.r+p.r+34){
@@ -597,15 +610,19 @@ function tickWorld(dt){
   for(let i=world.bushes.length-1;i>=0;i--){const b=world.bushes[i];
     if(diet==='plant'&&dist(p,b)<p.r+b.r){world.bushes.splice(i,1);
       p.hp=clamp(p.hp+15,0,100); addPoints(1);
-      world.pops.push({x:b.x,y:b.y,txt:'+1🪙 +HP',t:0,color:'#8ee06a'});
+      let ht='+1🪙 +HP';
+      if(mode==='boss'&&S.lives<3){S.lives++;updateLives();ht='+1🪙 +1❤️';}
+      world.pops.push({x:b.x,y:b.y,txt:ht,t:0,color:'#8ee06a'});
       if(mode==='level'&&world.q.type==='food'){world.progress++;questHUD();}
-      setTimeout(()=>{if(world)spawnBush();},3000);
+      setTimeout(()=>{if(world)spawnBush();},mode==='boss'?9000:3000);
     }}
   // trees: brachio eats leaves
   for(const t of world.trees){
     if(S.dino==='brachio'&&t.leaves&&Math.hypot(p.x-t.x,p.y-(t.y+26))<p.r+46){
       t.leaves=false; p.hp=clamp(p.hp+20,0,100); addPoints(2);
-      world.pops.push({x:t.x,y:t.y-30,txt:'+2🪙 +HP',t:0,color:'#8ee06a'});
+      let tt='+2🪙 +HP';
+      if(mode==='boss'&&S.lives<3){S.lives++;updateLives();tt='+2🪙 +1❤️';}
+      world.pops.push({x:t.x,y:t.y-30,txt:tt,t:0,color:'#8ee06a'});
       setTimeout(()=>{t.leaves=true;},8000);
     }}
   // prey wanders; carnivore eats
@@ -618,13 +635,16 @@ function tickWorld(dt){
     if(diet==='meat'&&dist(p,pr)<p.r+pr.r){world.prey.splice(i,1);
       const pts=pr.kind==='bird'?4:3;
       p.hp=clamp(p.hp+15,0,100); addPoints(pts);
-      world.pops.push({x:pr.x,y:pr.y,txt:'+'+pts+'🪙 +HP',t:0,color:pr.kind==='bird'?'#8ecbff':'#ffb28c'});
+      let mt='+'+pts+'🪙 +HP';
+      if(mode==='boss'&&S.lives<3){S.lives++;updateLives();mt='+'+pts+'🪙 +1❤️';}
+      world.pops.push({x:pr.x,y:pr.y,txt:mt,t:0,color:pr.kind==='bird'?'#8ecbff':'#ffb28c'});
       if(mode==='level'&&world.q.type==='food'){world.progress++;questHUD();}
-      setTimeout(()=>{if(world)spawnPrey();},2500);
+      setTimeout(()=>{if(world)spawnPrey();},mode==='boss'?9000:2500);
     }}
   // raptors hunt as a pack: circle to surround, then converge for the bite
   for(const r of world.raptors){
     if(r.packA===undefined)r.packA=rand(0,Math.PI*2);
+    if(r.stun>0){r.stun-=dt;resolveObstacles(r,0.6);continue;}
     const dP=dist(r,p);
     if(world.maze){ // maze: raptors patrol the corridors, chase when close
       if(dP<160){moveToward(r,p.x,p.y,r.speed,dt);}
@@ -1004,21 +1024,28 @@ function openMarblePick(){
   });
   hideAllOverlays();show('scrMarble');
 }
+/* v3.3: pyramid Plinko. Whole board fits one screen so the drop is visible
+   top to bottom. Funnel side rails follow the pyramid so nothing wedges in a
+   wall-and-peg pocket, plus an anti-stall nudge. */
 function buildMarble(pick,field){
   cam.x=0;cam.y=0;
-  const H2=H*2.6;
   field=field||MARBLERS;
-  marble={t:0,pick,field,over:false,camY:0,H2,finish:H2-70,pegs:[],balls:[],order:[],confetti:[]};
-  const m2=marble,rowN=Math.floor((H2-420)/95);
-  for(let row=0;row<rowN;row++){
-    const y=180+row*95,off=(row%2)?45:0,n=Math.floor((W-80)/90);
-    for(let i=0;i<=n;i++){
-      const x=42+off+i*90;
-      if(x>30&&x<W-30)m2.pegs.push({x:x+rand(-8,8),y:y+rand(-6,6)});
-    }
+  const rowsFit=clamp(Math.floor((H-290)/58),4,8);
+  const rowsWide=Math.max(2,Math.floor((W-150)/58)-1);
+  const RR=Math.min(rowsFit,rowsWide);
+  const s=clamp((W-150)/(RR+1),58,92);
+  const y0=150,rowGap=clamp((H-290)/RR,52,110);
+  marble={t:0,pick,field,over:false,camY:0,H2:H,finish:H-70,pegs:[],balls:[],order:[],confetti:[],
+    pyr:{cx:W/2,top:y0-46,bot:y0+(RR-1)*rowGap,halfTop:s*1.05,halfBot:(RR+1)/2*s+s*0.55}};
+  const m2=marble;
+  m2.pyr.halfBot=Math.min(m2.pyr.halfBot,W/2-24);
+  for(let r=0;r<RR;r++){
+    const n=3+r,y=y0+r*rowGap;
+    for(let i=0;i<n;i++)m2.pegs.push({x:W/2+(i-(n-1)/2)*s,y});
   }
   field.forEach((id,i)=>{
-    m2.balls.push({id,x:W*(0.2+0.2*i)+rand(-6,6),y:60+rand(0,20),vx:rand(-30,30),vy:0,r:15,done:false});
+    m2.balls.push({id,x:W/2+(i-(field.length-1)/2)*26+rand(-5,5),y:40+rand(0,16),
+      vx:rand(-24,24),vy:0,r:15,done:false,stall:0});
   });
 }
 function endMarble(){
@@ -1038,8 +1065,16 @@ function tickMarble(dt){
     if(b2.done)continue;
     b2.vy+=640*dt;if(b2.vy>500)b2.vy=500;
     b2.x+=b2.vx*dt;b2.y+=b2.vy*dt;b2.vx*=(1-0.4*dt);
-    if(b2.x<b2.r+16){b2.x=b2.r+16;b2.vx=Math.abs(b2.vx)*0.75+20;}
-    if(b2.x>W-b2.r-16){b2.x=W-b2.r-16;b2.vx=-Math.abs(b2.vx)*0.75-20;}
+    const py=m2.pyr;
+    let half=b2.y<=py.top?py.halfTop:b2.y>=py.bot?py.halfBot:
+      py.halfTop+(py.halfBot-py.halfTop)*((b2.y-py.top)/(py.bot-py.top));
+    half=Math.min(half,W/2-b2.r-8);
+    if(b2.x<py.cx-half){b2.x=py.cx-half;b2.vx=Math.abs(b2.vx)*0.55+26;}
+    if(b2.x>py.cx+half){b2.x=py.cx+half;b2.vx=-Math.abs(b2.vx)*0.55-26;}
+    const spd=Math.hypot(b2.vx,b2.vy);
+    if(spd<26&&b2.y<m2.finish-20){b2.stall+=dt;
+      if(b2.stall>0.6){b2.stall=0;b2.vx+=rand(-110,110);b2.vy-=rand(30,90);}}
+    else b2.stall=0;
     for(const pg of m2.pegs){
       const dx=b2.x-pg.x,dy=b2.y-pg.y,dd=Math.hypot(dx,dy),mn=b2.r+8;
       if(dd<mn&&dd>0.001){
@@ -1085,7 +1120,12 @@ function drawMarble(){
   const g=ctx.createLinearGradient(0,0,0,m2.H2);
   g.addColorStop(0,'#bfe6ff');g.addColorStop(1,'#e6d1a8');
   ctx.fillStyle=g;ctx.fillRect(0,m2.camY,W,H);
-  ctx.fillStyle='#7a4f21';ctx.fillRect(0,m2.camY,16,H);ctx.fillRect(W-16,m2.camY,16,H);
+  const py=m2.pyr;
+  ctx.strokeStyle='#7a4f21';ctx.lineWidth=12;ctx.lineCap='round';ctx.lineJoin='round';
+  for(const sg of [-1,1]){ctx.beginPath();
+    ctx.moveTo(py.cx+sg*(py.halfTop+11),py.top-42);
+    ctx.lineTo(py.cx+sg*(py.halfBot+11),py.bot);
+    ctx.lineTo(py.cx+sg*(py.halfBot+11),m2.finish);ctx.stroke();}
   for(const pg of m2.pegs){
     if(pg.y<m2.camY-20||pg.y>m2.camY+H+20)continue;
     ctx.fillStyle='#8a6a50';ctx.beginPath();ctx.arc(pg.x,pg.y,8,0,Math.PI*2);ctx.fill();
@@ -1289,7 +1329,7 @@ function openMiniOffer(){
   const games=[
     {id:'chomp',emo:'🐍',text:'Chomp Chase! Eat dots, grow big, and try to eat the rival dino. Earn bonus points!'},
     {id:'shapes',emo:'🔷',text:'Shape Sorter! Fit the shapes in the holes before time runs out. +3 points each!'},
-    {id:'spin',emo:'🎰',text:'Lucky Spin! Spend 1 point a spin. Match 3 for a +25 jackpot!'},
+    {id:'spin',emo:'🎰',text:'Lucky Spin! ONE spin for 1 point. Match 3 for a +25 jackpot!'},
     {id:'runner',emo:'🏃',text:'Dino Run! Auto-run: JUMP over rocks and cactus, DUCK under branches. Distance = points!'},
     {id:'marble',emo:'🏁',text:'Marble Race! Bet 2 points on a dino marble dropping through the pegs. Winner gets +10!'},
     {id:'tilt',emo:'🕳️',text:'Tilt Maze! TILT your tablet to roll the marble to the green pad and dodge the holes!'}
@@ -1313,7 +1353,10 @@ function openShopGate(){ // after mini game or skip → level map → intro
 function showIntro(){
   const q=questFor(S.level);
   $('introTitle').textContent=(q.type==='boss'?'👹 BOSS LEVEL '+S.level:'Level '+S.level)+' · '+DIFF[S.diff].label;
-  $('introEmo').textContent=q.emo;
+  const ie=$('introEmo');
+  if(q.type==='food'&&DINOS[S.dino]&&DINOS[S.dino].diet==='plant'&&ENV.bush&&ENV.bush.toDataURL){
+    ie.innerHTML='<img src="'+ENV.bush.toDataURL()+'" alt="berry bush" style="height:78px">';
+  }else ie.textContent=q.emo;
   $('introText').textContent=q.type==='boss'
     ? 'A giant boss dino guards this land! Get close and TAP it to bite. Dodge its charge. You have 3 hearts.'
     : q.text;
@@ -1469,13 +1512,13 @@ function finishMath(){
 
 /* ============ LUCKY SPIN ============ */
 const SPIN_EMO=['🦖','🥚','🌴','🍖','💎'];
-let spinsLeft=10;
+let spinsLeft=1;
 function spinBtnUI(){
   $('btnSpin').textContent=`Spin (1 🪙) — ${spinsLeft} left`;
   $('btnSpin').disabled=S.points<1||spinsLeft<=0;
 }
 function startSpin(){hideAllOverlays();show('scrSpin');$('spinPts').textContent=S.points;
-  spinsLeft=10;spinBtnUI();}
+  spinsLeft=1;spinBtnUI();}
 $('btnSpin').onclick=()=>{
   if(S.points<1||spinsLeft<=0)return; addPoints(-1);spinsLeft--;$('spinPts').textContent=S.points;
   $('btnSpin').disabled=true;
@@ -1492,7 +1535,7 @@ $('btnSpin').onclick=()=>{
       if(a===b&&b===c){addPoints(25);toast('🎉 JACKPOT! +25 🪙',2500);}
       else if(a===b||b===c||a===c){addPoints(3);toast('Pair! +3 🪙');}
       $('spinPts').textContent=S.points;spinBtnUI();saveGame();
-      if(spinsLeft<=0)toast('Out of spins! Hit Done to keep playing.',2200);
+      if(spinsLeft<=0)toast('That was your spin! Hit Done to keep playing.',2200);
     }},70);
 };
 $('btnSpinDone').onclick=openShopGate;
@@ -2056,7 +2099,9 @@ function draw(){
     if(world.walls)for(const wl of world.walls)if(vis(wl.x,wl.y,Math.max(wl.hw,wl.hh)+90))dq.push({y:wl.y+wl.hh,f:function(){drawWallEnv(wl);}});
     for(const b of world.bushes)if(vis(b.x,b.y,90))dq.push({y:b.y+22,f:function(){drawBushEnv(b);}});
     for(const pr of world.prey)if(vis(pr.x,pr.y,60))dq.push({y:pr.y+pr.r,f:function(){drawPreyEnv(pr);}});
-    for(const r of world.raptors)if(vis(r.x,r.y,80))dq.push({y:r.y+r.r,f:function(){drawDino(r.x,r.y,r.r,(world.player.x>r.x?1:-1),'raptor',world.t*8,null);}});
+    for(const r of world.raptors)if(vis(r.x,r.y,80))dq.push({y:r.y+r.r,f:function(){
+      drawDino(r.x,r.y,r.r,(world.player.x>r.x?1:-1),'raptor',world.t*8,null);
+      if(r.stun>0){ctx.font='18px sans-serif';ctx.textAlign='center';ctx.fillText('💫',r.x,r.y-r.r-14);}}});
     if(mode==='boss'){const bb=world.boss;
       dq.push({y:bb.y+bb.r,f:function(){drawDino(bb.x,bb.y,bb.r,(world.player.x>bb.x?1:-1),'boss',world.t*5,'crown',{rage:bb.charging});}});}
     const p=world.player;
@@ -2298,7 +2343,14 @@ $('btnRetry').onclick=()=>{hideAllOverlays();showIntro();};
 $('btnNext').onclick=()=>{ if(!maybeOfferMini()) showMap(true); };
 $('btnBossNext').onclick=()=>{ if(!maybeOfferMini()) showMap(true); };
 $('btnShop').onclick=()=>{renderShop();hideAllOverlays();show('scrShop');};
-$('btnShopDone').onclick=()=>{ if(!maybeOfferMini()) showMap(true); };
+/* v3.3: shop reachable from pause and from the level map, returns where it came from */
+let shopReturn=null;
+$('btnPauseShop').onclick=()=>{shopReturn='pause';renderShop();hideAllOverlays();show('scrShop');};
+$('btnMapShop').onclick=()=>{shopReturn='map';renderShop();hideAllOverlays();show('scrShop');};
+$('btnShopDone').onclick=()=>{
+  if(shopReturn==='pause'){shopReturn=null;hideAllOverlays();show('scrPause');return;}
+  if(shopReturn==='map'){shopReturn=null;showMap(false);return;}
+  if(!maybeOfferMini()) showMap(true); };
 $('btnSkipMini').onclick=()=>{toast('Skipped! On to the next level.');openShopGate();};
 $('btnPlayMini').onclick=()=>{
   hideAllOverlays();
