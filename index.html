@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dino Survival v3.3</title>
+<title>Dino Survival v3.4</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#79c14e">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -139,6 +139,10 @@
     <button id="btnResume" class="btn green">▶ Resume</button><br>
     <button id="btnPauseShop" class="btn gold">🛒 Shop</button><br>
     <button id="btnRestart" class="btn gold">↻ Restart Level</button><br>
+    <div style="margin:8px 0">
+      <button id="btnKnobL" class="btn small gray">🕹 Left knob: ON</button>
+      <button id="btnKnobR" class="btn small gray">🕹 Right knob: ON</button>
+    </div>
     <button id="btnMainMenu" class="btn gray">🏠 Main Menu</button>
   </div>
 </div>
@@ -146,7 +150,7 @@
 <!-- DINO SELECT -->
 <div id="scrSelect" class="overlay">
   <div class="panel">
-    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.3</span></h1>
+    <h1>🦖 DINO SURVIVAL <span style="font-size:14px;color:#8a6a50">v3.4</span></h1>
     <p class="sub">Pick your dinosaur and start playing!</p>
     <div id="diffRow" style="display:flex;gap:8px;justify-content:center;margin:2px 0 10px;flex-wrap:wrap">
       <button class="btn small gray diffbtn" data-diff="beginner">🐣 Beginner</button>
@@ -331,8 +335,8 @@ const input={active:false,id:null,x:0,y:0,keys:{}};
 let cam={x:0,y:0};
 /* control knobs (v3.2): bottom corners, either hand. Optional next to touch-to-follow. */
 const KNOB_R=50;
-const knobs=[{cx:0,cy:0,id:null,dx:0,dy:0},{cx:0,cy:0,id:null,dx:0,dy:0}];
-function knobLayout(){knobs[0].cx=76;knobs[0].cy=H-90;knobs[1].cx=W-76;knobs[1].cy=H-90;}
+const knobs=[{cx:0,cy:0,id:null,dx:0,dy:0,on:true},{cx:0,cy:0,id:null,dx:0,dy:0,on:true}];
+function knobLayout(){knobs[0].cx=104;knobs[0].cy=H-128;knobs[1].cx=W-104;knobs[1].cy=H-128;}
 knobLayout();window.addEventListener('resize',knobLayout);
 function knobsOn(){return mode==='level'||mode==='boss'||mode==='chomp';}
 function knobSet(k,px,py){
@@ -342,7 +346,7 @@ function knobSet(k,px,py){
 }
 cv.addEventListener('pointerdown',e=>{
   if(knobsOn())for(const k of knobs){
-    if(k.id===null&&Math.hypot(e.clientX-k.cx,e.clientY-k.cy)<KNOB_R+16){
+    if(k.on&&k.id===null&&Math.hypot(e.clientX-k.cx,e.clientY-k.cy)<KNOB_R+16){
       k.id=e.pointerId;knobSet(k,e.clientX,e.clientY);return;}}
   input.active=true;input.id=e.pointerId;input.x=e.clientX;input.y=e.clientY;onTap(e.clientX,e.clientY);});
 cv.addEventListener('pointermove',e=>{
@@ -467,7 +471,7 @@ function updateLives(){$('lives').textContent='❤️'.repeat(S.lives)+'🖤'.re
 
 /* ============ TAP (boss bite) ============ */
 function onTap(x,y){
-  if(mode==='runner'){if(y<H*0.62)runnerJump();return;}
+  if(mode==='runner'){runnerJump();return;}
   /* v3.3: plant eaters fight back. Tap with a raptor in reach = tail bonk,
      knockback plus a short stun. 1 second cooldown. */
   if(mode==='level'&&world&&!world.done&&DINOS[S.dino]&&DINOS[S.dino].diet==='plant'){
@@ -856,12 +860,15 @@ function hedgeCvs(hw,hh){
   const c=envCvs(Math.ceil(hw*2+P*2),Math.ceil(hh*2+TOP+P*2)),x=c.getContext('2d');
   const bx=P,by=P,bw=hw*2,bh=hh*2+TOP,horiz=bw>=bh;
   const pts=[],L=horiz?bw:bh;
-  for(let u=-5;u<=L+5;u+=9){
-    const a=rand(0.22,0.44),b2=rand(0.56,0.8);
-    if(horiz){pts.push({x:bx+u+rand(-3,3),y:by+bh*a,r:rand(11,15)});
-      pts.push({x:bx+u+rand(-3,3),y:by+bh*b2,r:rand(11,15)});}
-    else{pts.push({x:bx+bw*a,y:by+u+rand(-3,3),r:rand(11,15)});
-      pts.push({x:bx+bw*b2,y:by+u+rand(-3,3),r:rand(11,15)});}
+  /* v3.4: circle centers clamped so no leaf pokes past the segment ends.
+     Wall rects already overlap at every corner post, so junctions still merge. */
+  const cl2=(u,r)=>clamp(u,r+6,Math.max(r+6,L-r-6));
+  for(let u=0;u<=L;u+=9){
+    const a=rand(0.22,0.44),b2=rand(0.56,0.8),r1=rand(11,15),r2=rand(11,15);
+    if(horiz){pts.push({x:bx+cl2(u+rand(-3,3),r1),y:by+bh*a,r:r1});
+      pts.push({x:bx+cl2(u+rand(-3,3),r2),y:by+bh*b2,r:r2});}
+    else{pts.push({x:bx+bw*a,y:by+cl2(u+rand(-3,3),r1),r:r1});
+      pts.push({x:bx+bw*b2,y:by+cl2(u+rand(-3,3),r2),r:r2});}
   }
   x.fillStyle='#1f5c23';
   for(const p of pts){x.beginPath();x.arc(p.x,p.y+3,p.r+2.5,0,Math.PI*2);x.fill();}
@@ -910,13 +917,17 @@ function drawMazeMap(){
 
 /* ============ DINO RUN MINI GAME (v3.0) ============ */
 let runner=null;
-const RUNOB={rock:{w:44,h:34},rockBig:{w:60,h:52},cactus:{w:34,h:58},branch:{w:96,h:44,air:true}};
+const RUNOB={rock:{w:44,h:34},rockBig:{w:60,h:52},cactus:{w:34,h:58}};
 function buildRunner(){
   cam.x=0;cam.y=0;
   const tier=({beginner:0.78,intermediate:1,advanced:1.18})[S.diff]||1;
-  runner={t:0,dur:45,x:0,tier,speed:250*tier,gy:Math.min(H*0.74,H-120),py:0,vy:0,duck:false,
+  const gy=Math.min(H*0.74,H-120);
+  runner={t:0,dur:45,x:0,tier,speed:250*tier,gy,py:0,vy:0,
     hearts:3,inv:0,obs:[],next:1.5,reward:0,over:false,
+    eggs:[],eggPts:0,eggNext:1.6,lungeT:0,chaseX:0,bones:[],
     clouds:[{x:W*0.25,y:H*0.16,s:1},{x:W*0.7,y:H*0.26,s:0.7},{x:W*0.95,y:H*0.1,s:1.2}]};
+  for(let i=0;i<10;i++)runner.bones.push({x:rand(0,W+140),y:rand(gy+26,Math.max(gy+40,H-18)),
+    kind:i%3,s:rand(0.7,1.15)});
 }
 function runnerJump(){const R2=runner;if(R2&&!R2.over&&R2.py===0)R2.vy=-960;}
 function endRunner(msg){
@@ -928,32 +939,49 @@ function tickRunner(dt){
   if(!runner||runner.over)return;
   const R2=runner;R2.t+=dt;
   R2.speed=(250+R2.t*7)*R2.tier;R2.x+=R2.speed*dt;
-  R2.duck=R2.py===0&&(input.keys['ArrowDown']||input.keys['s']||(input.active&&input.y>H*0.62));
   R2.vy+=2600*dt;R2.py+=R2.vy*dt;if(R2.py>0){R2.py=0;R2.vy=0;}
   for(const cl of R2.clouds){cl.x-=R2.speed*0.12*cl.s*dt;if(cl.x<-90)cl.x=W+90;}
   R2.next-=dt;
   if(R2.next<=0){
     R2.next=Math.max(0.95,rand(0.9,1.6)*(300/R2.speed))+(R2.tier<1?0.3:0);
     const roll=Math.random();let kind='rock';
-    if(roll<0.22)kind='cactus';
-    else if(roll<0.42&&(R2.t>14||R2.tier>1))kind='branch';
+    if(roll<0.3)kind='cactus';
     else if(roll<0.58)kind='rockBig';
     R2.obs.push({kind,x:W+90,
       img:(kind==='rock'||kind==='rockBig')?ENV.rocks[Math.floor(rand(0,ENV.rocks.length))]:null});
   }
   for(let i=R2.obs.length-1;i>=0;i--){const o=R2.obs[i];o.x-=R2.speed*dt;if(o.x<-150)R2.obs.splice(i,1);}
-  R2.inv-=dt;
-  const px=W*0.26,pr=17,pTop=R2.gy+R2.py-(R2.duck?26:50),pBot=R2.gy+R2.py+2;
+  /* v3.4: eggs to collect, like the llamas in Alto's Adventure */
+  R2.eggNext-=dt;
+  if(R2.eggNext<=0){
+    R2.eggNext=rand(1.3,2.4);
+    const arc=Math.random()<0.45,n=3;
+    for(let i=0;i<n;i++){
+      const ey=arc?R2.gy-96-Math.sin((i/(n-1))*Math.PI)*34:R2.gy-26;
+      R2.eggs.push({x:W+90+i*46,y:ey,r:11,v:Math.floor(rand(0,4))});
+    }
+  }
+  for(let i=R2.eggs.length-1;i>=0;i--){const e=R2.eggs[i];e.x-=R2.speed*dt;if(e.x<-60)R2.eggs.splice(i,1);}
+  /* bones scroll with the ground so the ground reads as moving (moonwalk fix) */
+  for(const bn of R2.bones){bn.x-=R2.speed*dt;if(bn.x<-90){bn.x+=W+180;
+    bn.y=rand(R2.gy+26,Math.max(R2.gy+40,H-18));bn.kind=Math.floor(rand(0,3));bn.s=rand(0.7,1.15);}}
+  R2.inv-=dt;R2.lungeT=Math.max(0,R2.lungeT-dt);
+  R2.chaseX=W*0.26-46-R2.hearts*58+(R2.lungeT>0?Math.sin(R2.lungeT*10)*14+26:0);
+  const px=W*0.26,pr=17,pTop=R2.gy+R2.py-50,pBot=R2.gy+R2.py+2;
+  for(let i=R2.eggs.length-1;i>=0;i--){const e=R2.eggs[i];
+    if(Math.abs(e.x-px)<pr+e.r&&Math.abs(e.y-(R2.gy+R2.py-24))<pr+e.r+8){
+      R2.eggs.splice(i,1);R2.eggPts++;toast('🥚 +1 🪙',600);
+    }}
   for(const o of R2.obs){
     const b2=RUNOB[o.kind],ox0=o.x-b2.w/2+6,ox1=o.x+b2.w/2-6;
     const oy0=b2.air?R2.gy-84:R2.gy-b2.h,oy1=b2.air?R2.gy-84+b2.h:R2.gy;
     if(R2.inv<=0&&px+pr>ox0&&px-pr<ox1&&pBot>oy0&&pTop<oy1){
-      R2.hearts--;R2.inv=1.2;
-      if(R2.hearts<=0){R2.reward=0;endRunner('😵 Wiped out at '+Math.floor(R2.x/50)+'m!');return;}
-      toast('💥 Ouch!  '+'❤️'.repeat(R2.hearts));
+      R2.hearts--;R2.inv=1.2;R2.lungeT=0.9;
+      if(R2.hearts<=0){R2.reward=0;endRunner('😵 The raptor caught you at '+Math.floor(R2.x/50)+'m!');return;}
+      toast('💥 Ouch! The raptor is closing in!  '+'❤️'.repeat(R2.hearts));
     }
   }
-  R2.reward=Math.min(35,Math.floor(R2.x/320));
+  R2.reward=Math.min(40,Math.floor(R2.x/380)+R2.eggPts);
   if(R2.t>=R2.dur)endRunner('🏁 You made it '+Math.floor(R2.x/50)+'m!');
 }
 function drawRunner(){
@@ -966,16 +994,28 @@ function drawRunner(){
     ctx.ellipse(cl.x+22*cl.s,cl.y+4*cl.s,24*cl.s,11*cl.s,0,0,Math.PI*2);ctx.fill();}
   ctx.fillStyle='#c9a06a';ctx.fillRect(0,R2.gy,W,H-R2.gy);
   ctx.fillStyle='#8bc34a';ctx.fillRect(0,R2.gy-6,W,10);
-  ctx.strokeStyle='rgba(122,79,33,.5)';ctx.lineWidth=3;ctx.setLineDash([18,16]);
-  ctx.lineDashOffset=-(R2.x%34);
-  ctx.beginPath();ctx.moveTo(0,R2.gy+34);ctx.lineTo(W,R2.gy+34);ctx.stroke();ctx.setLineDash([]);
+  /* v3.4: fossils in the dirt, scrolling with the ground */
+  for(const bn of R2.bones){
+    ctx.save();ctx.translate(bn.x,bn.y);ctx.scale(bn.s,bn.s);ctx.globalAlpha=0.8;
+    ctx.fillStyle='#e8dcc8';ctx.strokeStyle='rgba(122,79,33,.4)';ctx.lineWidth=2;
+    if(bn.kind===0){ // long bone
+      ctx.fillRect(-16,-3,32,6);
+      ctx.beginPath();ctx.arc(-16,-4,5,0,Math.PI*2);ctx.arc(-16,4,5,0,Math.PI*2);
+      ctx.arc(16,-4,5,0,Math.PI*2);ctx.arc(16,4,5,0,Math.PI*2);ctx.fill();
+    }else if(bn.kind===1){ // skull
+      ctx.beginPath();ctx.ellipse(0,0,13,10,0,0,Math.PI*2);ctx.fill();
+      ctx.fillRect(6,4,10,7);
+      ctx.fillStyle='rgba(122,79,33,.55)';
+      ctx.beginPath();ctx.arc(-3,-2,2.6,0,Math.PI*2);ctx.arc(6,-2,2.6,0,Math.PI*2);ctx.fill();
+    }else{ // rib cage
+      ctx.lineWidth=3;ctx.strokeStyle='#e8dcc8';
+      for(let i2=0;i2<3;i2++){ctx.beginPath();ctx.arc(-10+i2*10,0,9,Math.PI*0.15,Math.PI*0.9);ctx.stroke();}
+    }
+    ctx.restore();ctx.globalAlpha=1;
+  }
+  for(const e of R2.eggs)drawEggEnv(e);
   for(const o of R2.obs){
-    if(o.kind==='branch'){
-      ctx.fillStyle='#7a4f21';ctx.fillRect(o.x-48,R2.gy-84,96,14);
-      ctx.fillStyle='#3d8b40';ctx.beginPath();
-      ctx.arc(o.x-30,R2.gy-82,14,0,Math.PI*2);ctx.arc(o.x+2,R2.gy-86,16,0,Math.PI*2);
-      ctx.arc(o.x+34,R2.gy-80,13,0,Math.PI*2);ctx.fill();
-    }else if(o.kind==='cactus'){
+    if(o.kind==='cactus'){
       ctx.fillStyle='#3e9e4f';
       rrPath(o.x-9,R2.gy-58,18,58,8);ctx.fill();
       rrPath(o.x-26,R2.gy-44,18,9,4);ctx.fill();rrPath(o.x-26,R2.gy-58,9,23,4);ctx.fill();
@@ -988,17 +1028,17 @@ function drawRunner(){
     }
   }
   const px=W*0.26,py2=R2.gy+R2.py-20;
+  /* the chaser: hearts left set how far back it trails */
+  drawDino(R2.chaseX,R2.gy-20,19,1,'raptor',R2.x/24,null);
   if(!(R2.inv>0&&Math.floor(R2.t*12)%2===0)){
-    if(R2.duck){ctx.save();ctx.translate(px,py2+6);ctx.scale(1.15,0.72);
-      drawDino(0,0,20,1,S.dino,R2.x/26,S.wearing);ctx.restore();}
-    else drawDino(px,py2,20,1,S.dino,R2.py===0?R2.x/26:0.5,S.wearing);
+    drawDino(px,py2,20,1,S.dino,R2.py===0?R2.x/26:0.5,S.wearing);
   }
   ctx.fillStyle='#5b3d20';ctx.font='700 20px Fredoka,sans-serif';ctx.textAlign='center';
   ctx.fillText('🏃 DINO RUN  '+Math.floor(R2.x/50)+'m  ⏱️'+Math.ceil(Math.max(0,R2.dur-R2.t))+'s',W/2,40);
   ctx.font='700 17px Fredoka,sans-serif';
   ctx.fillText('❤️'.repeat(R2.hearts)+'🖤'.repeat(Math.max(0,3-R2.hearts))+'   🪙 +'+R2.reward,W/2,66);
   ctx.font='600 13px Fredoka,sans-serif';ctx.fillStyle='rgba(91,61,32,.75)';
-  ctx.fillText('Tap high = JUMP · Hold low = DUCK',W/2,H-16);
+  ctx.fillText('Tap to JUMP · grab the eggs 🥚 · stay ahead of the raptor!',W/2,H-16);
 }
 
 /* ============ MARBLE RACE MINI GAME (v3.0) ============ */
@@ -1330,7 +1370,7 @@ function openMiniOffer(){
     {id:'chomp',emo:'🐍',text:'Chomp Chase! Eat dots, grow big, and try to eat the rival dino. Earn bonus points!'},
     {id:'shapes',emo:'🔷',text:'Shape Sorter! Fit the shapes in the holes before time runs out. +3 points each!'},
     {id:'spin',emo:'🎰',text:'Lucky Spin! ONE spin for 1 point. Match 3 for a +25 jackpot!'},
-    {id:'runner',emo:'🏃',text:'Dino Run! Auto-run: JUMP over rocks and cactus, DUCK under branches. Distance = points!'},
+    {id:'runner',emo:'🏃',text:'Dino Run! JUMP over rocks and cactus, grab eggs, and stay ahead of the raptor!'},
     {id:'marble',emo:'🏁',text:'Marble Race! Bet 2 points on a dino marble dropping through the pegs. Winner gets +10!'},
     {id:'tilt',emo:'🕳️',text:'Tilt Maze! TILT your tablet to roll the marble to the green pad and dodge the holes!'}
   ];
@@ -2126,6 +2166,7 @@ function draw(){
   if(mode==='marble')drawMarble();
   if(mode==='tilt')drawTilt();
   if(knobsOn())for(const k of knobs){
+    if(!k.on)continue;
     ctx.globalAlpha=(k.id!==null)?0.55:0.3;
     ctx.fillStyle='#10240f';ctx.beginPath();ctx.arc(k.cx,k.cy,KNOB_R,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle='#fff7e0';ctx.lineWidth=3;ctx.beginPath();ctx.arc(k.cx,k.cy,KNOB_R,0,Math.PI*2);ctx.stroke();
@@ -2343,6 +2384,20 @@ $('btnRetry').onclick=()=>{hideAllOverlays();showIntro();};
 $('btnNext').onclick=()=>{ if(!maybeOfferMini()) showMap(true); };
 $('btnBossNext').onclick=()=>{ if(!maybeOfferMini()) showMap(true); };
 $('btnShop').onclick=()=>{renderShop();hideAllOverlays();show('scrShop');};
+/* v3.4: per-side knob toggles, stored on-device outside the game save */
+let knobCfg={left:true,right:true};
+try{const kc=localStorage.getItem('dino-knobs');if(kc)knobCfg=Object.assign(knobCfg,JSON.parse(kc));}catch(e){}
+function applyKnobCfg(){
+  knobs[0].on=!!knobCfg.left;knobs[1].on=!!knobCfg.right;
+  for(const k of knobs)if(!k.on){k.id=null;k.dx=0;k.dy=0;}
+  $('btnKnobL').textContent='🕹 Left knob: '+(knobCfg.left?'ON':'OFF');
+  $('btnKnobR').textContent='🕹 Right knob: '+(knobCfg.right?'ON':'OFF');
+}
+$('btnKnobL').onclick=()=>{knobCfg.left=!knobCfg.left;
+  try{localStorage.setItem('dino-knobs',JSON.stringify(knobCfg));}catch(e){}applyKnobCfg();};
+$('btnKnobR').onclick=()=>{knobCfg.right=!knobCfg.right;
+  try{localStorage.setItem('dino-knobs',JSON.stringify(knobCfg));}catch(e){}applyKnobCfg();};
+applyKnobCfg();
 /* v3.3: shop reachable from pause and from the level map, returns where it came from */
 let shopReturn=null;
 $('btnPauseShop').onclick=()=>{shopReturn='pause';renderShop();hideAllOverlays();show('scrShop');};
